@@ -8,7 +8,16 @@
   <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-RLS%20%2B%20Vault-3ECF8E?logo=supabase&logoColor=white">
   <img alt="Tests" src="https://img.shields.io/badge/backend%20tests-64%20passing-34d399">
+  <img alt="Status: in development" src="https://img.shields.io/badge/status-in%20development-f59e0b">
+  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-7c6cff">
 </p>
+
+> [!WARNING]
+> **OSMSEA is in active development (early alpha).** The core loop works end to end: goal, plan,
+> approval, execution, verification, persisted results. APIs, the database schema and agent spec
+> fields may still change between commits, and several features are not built yet (see
+> [Not implemented yet](#not-implemented-yet)). It has not been security-audited or load-tested, so
+> don't run it in production or against sensitive data yet.
 
 # OSMSEA
 
@@ -117,3 +126,12 @@ cd ../web && pnpm exec tsc --noEmit && pnpm lint && pnpm build
   by iCloud (e.g. `~/Desktop`), virtualenv `.pth` files can be flagged hidden and Python skips them.
 - **429 from OpenRouter on `:free` models**: free models have a small daily request quota. Workflows
   fail with the provider's message rather than hanging; add credits or choose a paid model in Integrations.
+
+## Project status
+
+In development. Next on the roadmap: a fully verified multi-agent run on a production model, MCP server
+connections, member invitations, and a separate worker process. Issues and suggestions are welcome.
+
+## License
+
+[MIT](LICENSE) © 2026 Malyaj Nailwal
