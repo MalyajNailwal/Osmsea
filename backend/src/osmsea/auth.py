@@ -17,6 +17,7 @@ CACHE_SECONDS = 60
 class User:
     id: str
     email: str
+    email_confirmed: bool = True  # Supabase Auth `email_confirmed_at` is set
 
 
 class Authenticator:
@@ -44,7 +45,7 @@ class Authenticator:
         if r.status_code != 200:
             return None
         data = r.json()
-        user = User(id=data["id"], email=data.get("email") or "")
+        user = User(id=data["id"], email=data.get("email") or "", email_confirmed=bool(data.get("email_confirmed_at")))
         if len(self._cache) > 5000:
             self._cache.clear()
         self._cache[digest] = (time.monotonic() + CACHE_SECONDS, user)

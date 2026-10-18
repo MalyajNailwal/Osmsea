@@ -20,11 +20,11 @@ from fastapi.responses import JSONResponse
 from starlette.routing import Route
 from pydantic import BaseModel, Field
 
-from . import automation, improve, mcp_server, orgs, sandbox
+from . import automation, improve, mcp_server, members, orgs, sandbox
 from .auth import Authenticator, User, member_role, role_allows
 from .builder import propose_organization
 from .config import Config
-from .evals import choose_model, create_eval_run, model_stats
+from .evals import choose_model, create_eval_run, create_replay, model_stats
 from .integrations import ProviderNotConfigured, catalog, llm_provider_for_org, tool_secrets
 from .llm import LLMError
 from .orgs import Actor, NotFound
@@ -116,6 +116,24 @@ class McpServerUpdateIn(BaseModel):
     enabled: bool | None = None
     secret: str | None = Field(None, max_length=2000)
     clear_secret: bool = False
+
+
+class InviteIn(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+    role: Literal["viewer", "member", "admin"] = "member"
+
+
+class InviteTokenIn(BaseModel):
+    token: str = Field(min_length=10, max_length=200)
+
+
+class RoleIn(BaseModel):
+    role: Literal["viewer", "member", "admin"]
+
+
+class ReplayIn(BaseModel):
+    source_md: str | None = Field(None, min_length=1, max_length=64 * 1024)  # default: the spec version the attempt used
+    model: str | None = Field(None, min_length=1, max_length=120)
 
 
 class TokenIn(BaseModel):
@@ -411,6 +429,45 @@ def create_app(config: Config | None = None, *, db: Any = None, provider_factory
     async def decide_proposal(org_id: UUID, proposal_id: UUID, decision: Literal["accept", "reject"], request: Request,
                               actor: Admin) -> dict[str, Any]:
         return await improve.decide_proposal(state(request).db, str(org_id), str(proposal_id), actor, decision == "accept")
+
+    # --- members & invitations ---------------------------------------------------------------------
+
+    @app.post("/orgs/{org_id}/invitations", status_code=201)
+    async def invite(org_id: UUID, body: InviteIn, request: Request, actor: Admin) -> dict[str, Any]:
+        row, token = await members.create_invitation(state(request).db, str(org_id), actor, body.email, body.role)
+        return {**{k: v for k, v in row.items() if k != "token_hash"}, "url": f"{config.web_url}/invite/{token}"}
+
+    @app.delete("/orgs/{org_id}/invitations/{invitation_id}", status_code=204)
+    async def revoke_invitation(org_id: UUID, invitation_id: UUID, request: Request, actor: Admin) -> None:
+        await members.revoke_invitation(state(request).db, str(org_id), str(invitation_id), actor)
+
+    @app.post("/invitations/preview")
+    async def preview_invitation(body: InviteTokenIn, request: Request, _: AnyUser) -> dict[str, Any]:
+        return await members.preview_invitation(state(request).db, body.token)
+
+    @app.post("/invitations/accept")
+    async def accept_invitation(body: InviteTokenIn, request: Request, user: AnyUser) -> dict[str, Any]:
+        return await members.accept_invitation(state(request).db, body.token, user)
+
+    @app.patch("/orgs/{org_id}/members/{user_id}")
+    async def set_member_role(org_id: UUID, user_id: UUID, body: RoleIn, request: Request, actor: Admin) -> dict[str, Any]:
+        return await members.set_role(state(request).db, str(org_id), actor, str(user_id), body.role)
+
+    @app.delete("/orgs/{org_id}/members/{user_id}", status_code=204)
+    async def remove_member(org_id: UUID, user_id: UUID, request: Request, actor: Viewer) -> None:
+        db = state(request).db
+        role = await member_role(db, actor.id, str(org_id)) or "viewer"
+        await members.remove_member(db, str(org_id), actor, role, str(user_id))
+
+    # --- replays (re-run a past attempt with an edited spec or another model) ------------------------
+
+    @app.post("/orgs/{org_id}/executions/{execution_id}/replays", status_code=201)
+    async def replay_execution(org_id: UUID, execution_id: UUID, body: ReplayIn, request: Request, actor: Member) -> dict[str, Any]:
+        s = state(request)
+        row = await create_replay(s.db, str(org_id), str(execution_id), actor.id, actor.email,
+                                  source_md=body.source_md, model=body.model)
+        s.worker.submit_replay(row["id"])
+        return row
 
     # --- automation: API tokens, triggers, webhooks -------------------------------------------------
 

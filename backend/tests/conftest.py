@@ -19,7 +19,9 @@ from osmsea.store import MemoryStore
 ORG_DIR = Path(__file__).resolve().parents[2] / "organization"
 ALICE = User("00000000-0000-0000-0000-00000000a11c", "alice@example.com")
 BOB = User("00000000-0000-0000-0000-000000000b0b", "bob@example.com")
-TOKENS = {"token-alice": ALICE, "token-bob": BOB}
+CAROL = User("00000000-0000-0000-0000-0000000ca201", "carol@example.com")
+TOKENS = {"token-alice": ALICE, "token-bob": BOB, "token-carol": CAROL,
+          "token-carol-unconfirmed": User(CAROL.id, CAROL.email, email_confirmed=False)}
 TEST_CONFIG = Config(supabase_url="http://supabase.invalid", supabase_secret_key="x", supabase_publishable_key="x",
                      poll_interval=0.02, lease_seconds=60, allow_private_mcp_urls=True)
 

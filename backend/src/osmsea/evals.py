@@ -17,6 +17,7 @@ import asyncio
 import hashlib
 import logging
 import time
+import math
 from collections import defaultdict
 from typing import Any
 
@@ -25,8 +26,9 @@ from .integrations import ProviderNotConfigured
 from .llm import LLMError, LLMResponse
 from .registry import OrgRegistry, load_registry
 from .sandbox import SandboxUnavailable
+from .schemas import Plan
 from .specs import AgentSpec, OrgSettings, SpecError, parse_agent_markdown
-from .store import StoreError, now_iso, record_audit
+from .store import StoreError, now_iso, parse_ts, record_audit
 from .tools import ToolContext
 
 log = logging.getLogger(__name__)
@@ -108,18 +110,20 @@ def summarize(results: list[dict[str, Any]], cases: list[dict[str, Any]]) -> dic
     }
 
 
-async def _run_case(db: Any, run: dict[str, Any], case: dict[str, Any], spec: AgentSpec, reg: OrgRegistry,
-                    agent: dict[str, Any], provider: Any, secrets: dict[str, str], http: Any) -> dict[str, Any]:
+async def _attempt(db: Any, *, task_id: str, org_id: str, agent: dict[str, Any], task_fields: dict[str, Any],
+                   prerequisites: list[dict[str, Any]], recordings: list[dict[str, Any]], spec: AgentSpec, reg: OrgRegistry,
+                   provider: Any, secrets: dict[str, str], http: Any) -> dict[str, Any]:
+    """One sandboxed attempt (evaluation case or replay): no task, execution, event or audit writes; recorded
+    tool calls are answered from `recordings`. Returns the result fields shared by eval_results and replays."""
     settings = reg.settings
-    task = {"id": case["id"], "org_id": run["org_id"], "workflow_id": None, "agent_id": agent["id"],
-            "agent_slug": agent["slug"], "attempt": 1, "error": None, **(case["task"] or {})}
+    task = {"id": task_id, "org_id": org_id, "workflow_id": None, "agent_id": agent["id"],
+            "agent_slug": agent["slug"], "attempt": 1, "error": None, **task_fields}
     ctx = ExecutionContext(
         db=db, provider=provider, registry=reg,
         workflow={"id": None, "goal": task.get("objective") or task["title"], "objective": task.get("objective")},
         task=task, execution_id="", agent_version={"version": "candidate"}, spec=spec,
-        approved_tools=set(spec.allowed_tools), tool_context=ToolContext(run["org_id"], db, http, secrets),
-        prerequisites=case.get("prerequisites") or [], persist=False,
-        replay={r["sig"]: r for r in case.get("recordings") or []},
+        approved_tools=set(spec.allowed_tools), tool_context=ToolContext(org_id, db, http, secrets),
+        prerequisites=prerequisites, persist=False, replay={r["sig"]: r for r in recordings or []},
     )
     totals = {"tokens": 0, "cost": None, "model": None}
 
@@ -142,14 +146,23 @@ async def _run_case(db: Any, run: dict[str, Any], case: dict[str, Any], spec: Ag
         outcome = Outcome(False, error=f"model error: {e}")
     except SandboxUnavailable as e:
         outcome = Outcome(False, error=f"sandbox unavailable: {e}")
-    row = {
-        "org_id": run["org_id"], "eval_run_id": run["id"], "eval_case_id": case["id"], "agent_id": agent["id"],
+    return {
         "passed": outcome.succeeded, "verification": outcome.verification, "error": outcome.error,
+        "output": outcome.output.model_dump() if outcome.output else None,
         "cost_usd": totals["cost"], "tokens": totals["tokens"], "model": totals["model"] or provider.model,
         "steps": outcome.steps, "duration_ms": int((time.monotonic() - started) * 1000),
         "replayed": sum(1 for s in outcome.steps if s.get("replayed")),
         "live_calls": sum(1 for s in outcome.steps if s.get("type") == "tool" and not s.get("replayed")),
     }
+
+
+async def _run_case(db: Any, run: dict[str, Any], case: dict[str, Any], spec: AgentSpec, reg: OrgRegistry,
+                    agent: dict[str, Any], provider: Any, secrets: dict[str, str], http: Any) -> dict[str, Any]:
+    result = await _attempt(db, task_id=case["id"], org_id=run["org_id"], agent=agent, task_fields=case["task"] or {},
+                            prerequisites=case.get("prerequisites") or [], recordings=case.get("recordings") or [],
+                            spec=spec, reg=reg, provider=provider, secrets=secrets, http=http)
+    result.pop("output")
+    row = {"org_id": run["org_id"], "eval_run_id": run["id"], "eval_case_id": case["id"], "agent_id": agent["id"], **result}
     await db.insert("eval_results", row)
     return row
 
@@ -211,11 +224,11 @@ async def model_stats(db: Any, org_id: str, agent_id: str | None = None) -> list
     if agent_id:
         filters["agent_id"] = agent_id
     execs = await db.select("agent_executions", filters=filters, order="started_at.desc", limit=2000,
-                            columns="agent_id,model,cost_usd,input_tokens,output_tokens,verification")
+                            columns="agent_id,model,cost_usd,input_tokens,output_tokens,verification,started_at,finished_at")
     evals = await db.select("eval_results", filters=filters, order="created_at.desc", limit=2000,
                             columns="agent_id,model,cost_usd,tokens,passed")
     acc: dict[tuple[str, str], dict[str, Any]] = defaultdict(lambda: {"runs": 0, "passed": 0, "cost": 0.0, "costed": 0,
-                                                                       "tokens": 0, "live": 0, "eval": 0})
+                                                                       "tokens": 0, "live": 0, "eval": 0, "secs": 0.0, "timed": 0})
     for e in execs:
         if not e.get("verification") or not e.get("model"):
             continue  # infrastructure failures say nothing about model quality
@@ -227,6 +240,9 @@ async def model_stats(db: Any, org_id: str, agent_id: str | None = None) -> list
         if e.get("cost_usd") is not None:
             a["cost"] += float(e["cost_usd"])
             a["costed"] += 1
+        if e.get("started_at") and e.get("finished_at"):
+            a["secs"] += (parse_ts(e["finished_at"]) - parse_ts(e["started_at"])).total_seconds()
+            a["timed"] += 1
     for r in evals:
         if not r.get("model"):
             continue
@@ -244,6 +260,8 @@ async def model_stats(db: Any, org_id: str, agent_id: str | None = None) -> list
                     "pass_rate": a["passed"] / a["runs"], "live_runs": a["live"], "eval_runs": a["eval"],
                     "avg_tokens": a["tokens"] / a["runs"],
                     "total_cost_usd": a["cost"] if a["costed"] else None,
+                    "avg_cost_usd": a["cost"] / a["costed"] if a["costed"] else None,
+                    "avg_duration_s": a["secs"] / a["timed"] if a["timed"] else None,  # live runs only
                     "cost_per_pass": (a["cost"] / a["passed"]) if a["costed"] and a["passed"] else None})
     return sorted(out, key=lambda r: (r["agent_id"], -r["pass_rate"]))
 
@@ -269,3 +287,110 @@ async def choose_model(db: Any, reg: OrgRegistry, spec: AgentSpec, agent_id: str
     st = stats[model]
     price = "unknown cost" if cost == float("inf") else f"${cost:.4f} per verified task"
     return model, f"auto-routing: cheapest model meeting the bar ({st['pass_rate']:.0%} verified over {st['runs']} runs, {price})"
+
+
+# --- forecasts -----------------------------------------------------------------------------------
+
+
+async def forecast_plan(db: Any, reg: OrgRegistry, plan: Plan, default_model: str | None) -> dict[str, Any]:
+    """Expected success, cost and duration of a plan from this organization's verified history (live runs and
+    evaluations) for each agent on the model it would use. No history means no number: unknown stays unknown."""
+    stats = {(s["agent_id"], s["model"]): s for s in await model_stats(db, reg.org_id)}
+    rows: dict[str, dict[str, Any]] = {}
+    for t in plan.tasks:
+        agent = reg.agents[t.agent_id]
+        model = (await choose_model(db, reg, agent.spec, agent.agent_id))[0] or default_model
+        s = stats.get((agent.agent_id, model))
+        n = min(agent.spec.escalation.max_attempts, reg.settings.max_attempts)
+        row: dict[str, Any] = {"key": t.key, "agent": t.agent_id, "model": model, "runs": s["runs"] if s else 0,
+                               "max_attempts": n, "pass_rate": None, "success": None, "cost_usd": None, "duration_s": None}
+        if s:
+            fail = 1 - s["pass_rate"]
+            attempts = sum(fail ** k for k in range(n))  # expected attempts with retries on failure
+            row |= {"pass_rate": s["pass_rate"], "success": 1 - fail ** n, "expected_attempts": attempts,
+                    "cost_usd": s["avg_cost_usd"] * attempts if s["avg_cost_usd"] is not None else None,
+                    "duration_s": s["avg_duration_s"] * attempts if s["avg_duration_s"] is not None else None}
+        rows[t.key] = row
+
+    def known(field: str) -> bool:
+        return all(r[field] is not None for r in rows.values())
+
+    deps = {t.key: t.depends_on for t in plan.tasks}
+    finish: dict[str, float] = {}
+
+    def end(key: str) -> float:  # longest path through the DAG (plans are validated to be acyclic)
+        if key not in finish:
+            finish[key] = max((end(d) for d in deps[key]), default=0.0) + rows[key]["duration_s"]
+        return finish[key]
+
+    if known("duration_s"):
+        for key in rows:
+            end(key)
+    return {
+        "tasks": list(rows.values()),
+        "success": math.prod(r["success"] for r in rows.values()) if known("success") else None,
+        "cost_usd": sum(r["cost_usd"] for r in rows.values()) if known("cost_usd") else None,
+        "duration_s": max(finish.values()) if finish else None,
+        "known_tasks": sum(1 for r in rows.values() if r["success"] is not None), "total_tasks": len(rows),
+        "computed_at": now_iso(),
+    }
+
+
+# --- replays -------------------------------------------------------------------------------------
+
+
+async def create_replay(db: Any, org_id: str, execution_id: str, actor_id: str, actor_label: str, *,
+                        source_md: str | None = None, model: str | None = None) -> dict[str, Any]:
+    execs = await db.select("agent_executions", filters={"id": execution_id, "org_id": org_id})
+    if not execs or not execs[0].get("agent_id"):
+        raise SpecError(["execution not found"])
+    ex = execs[0]
+    agent = (await db.select("agents", filters={"id": ex["agent_id"]}))[0]
+    if source_md is None:
+        version = await db.select("agent_versions", filters={"id": ex.get("agent_version_id") or ""}) if ex.get("agent_version_id") else []
+        if not version:
+            raise SpecError(["the execution has no pinned spec version; provide source_md"])
+        source_md = version[0]["source_md"]
+    spec = parse_agent_markdown(source_md)
+    if spec.id != agent["slug"]:
+        raise SpecError([f"id: a replay must keep the agent id '{agent['slug']}'"])
+    row = (await db.insert("replays", {"org_id": org_id, "execution_id": execution_id, "agent_id": agent["id"],
+                                       "source_md": source_md, "model": model, "status": "queued", "created_by": actor_id}))[0]
+    await record_audit(db, org_id, "execution.replay", "execution", actor_id=actor_id, actor_label=actor_label,
+                       resource_id=execution_id, resource_name=agent["name"], details={"replay_id": row["id"], "model": model})
+    return row
+
+
+async def run_replay(db: Any, replay_id: str, provider_factory: Any, secrets_factory: Any, http: Any) -> None:
+    """Background job: re-run a past attempt against its recorded tool results. Never raises."""
+    if not await db.update("replays", {"status": "running"}, filters={"id": replay_id, "status": "queued"}):
+        return
+    rp = (await db.select("replays", filters={"id": replay_id}))[0]
+    try:
+        ex = (await db.select("agent_executions", filters={"id": rp["execution_id"]}))[0]
+        task = (await db.select("tasks", filters={"id": ex["task_id"]}))[0]
+        wf = (await db.select("workflows", filters={"id": ex["workflow_id"]}))[0]
+        agent = (await db.select("agents", filters={"id": rp["agent_id"]}))[0]
+        spec = parse_agent_markdown(rp["source_md"])
+        reg = await load_registry(db, rp["org_id"])
+        case = await db.select("eval_cases", filters={"source_execution_id": ex["id"]})
+        if case:  # prerequisite outputs exactly as the original attempt saw them
+            prerequisites = case[0]["prerequisites"]
+        else:
+            deps = await db.select("tasks", filters={"id": ("in", task["depends_on"])}) if task["depends_on"] else []
+            prerequisites = [{"key": d["key"], "agent_slug": d["agent_slug"], "output": d.get("output")} for d in deps
+                             if d["status"] == "completed"]
+        provider = await provider_factory(rp["org_id"], model=rp.get("model") or spec.model,
+                                          org_default_model=reg.settings.default_model)
+        fields = {k: task.get(k) for k in ("key", "title", "description", "expected_output", "acceptance_criteria")}
+        result = await _attempt(db, task_id=task["id"], org_id=rp["org_id"], agent=agent,
+                                task_fields={**fields, "objective": wf.get("objective")}, prerequisites=prerequisites,
+                                recordings=ex.get("tool_recordings") or [], spec=spec, reg=reg, provider=provider,
+                                secrets=await secrets_factory(rp["org_id"]), http=http)
+        await db.update("replays", {**result, "status": "completed", "completed_at": now_iso()}, filters={"id": replay_id})
+    except (SpecError, ProviderNotConfigured, LLMError) as e:
+        await db.update("replays", {"status": "failed", "error": str(e)[:1000], "completed_at": now_iso()}, filters={"id": replay_id})
+    except Exception as e:
+        log.exception("replay %s crashed", replay_id)
+        await db.update("replays", {"status": "failed", "error": f"internal error: {type(e).__name__}",
+                                    "completed_at": now_iso()}, filters={"id": replay_id})

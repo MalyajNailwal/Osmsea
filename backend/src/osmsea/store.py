@@ -164,6 +164,7 @@ class MemoryStore:
         "mcp_servers": [("org_id", "slug")],
         "eval_cases": [("source_execution_id",)],
         "api_tokens": [("token_hash",)],
+        "invitations": [("token_hash",)],
     }
 
     def __init__(self) -> None:

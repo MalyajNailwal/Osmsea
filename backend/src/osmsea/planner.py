@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from graphlib import CycleError, TopologicalSorter
@@ -18,10 +19,13 @@ from pydantic import ValidationError
 
 from .integrations import ProviderNotConfigured
 from .llm import LLMError, LLMProvider, LLMResponse, complete_with_retry
+from .evals import forecast_plan
 from .registry import OrgRegistry, load_registry
 from .schemas import Plan, json_schema
 from .store import now_iso, record_audit, record_event
 from .tools import clip
+
+log = logging.getLogger(__name__)
 
 PLAN_TIMEOUT_SECONDS = 240
 
@@ -159,10 +163,15 @@ async def plan_workflow(db: Any, workflow_id: str, provider_factory: ProviderFac
         await record_event(db, org_id, "planning_failed", f"Planning failed: {errors[0]}", level="error",
                            workflow_id=workflow_id, data={"errors": errors})
         return
-    await save_plan(db, wf, reg, plan)
+    try:  # a forecast is advisory: it must never block a plan
+        forecast = await forecast_plan(db, reg, plan, default_model=provider.model)
+    except Exception:
+        log.exception("forecast failed for workflow %s", workflow_id)
+        forecast = None
+    await save_plan(db, wf, reg, plan, forecast)
 
 
-async def save_plan(db: Any, wf: dict[str, Any], reg: OrgRegistry, plan: Plan) -> None:
+async def save_plan(db: Any, wf: dict[str, Any], reg: OrgRegistry, plan: Plan, forecast: dict[str, Any] | None = None) -> None:
     permissions, requires = compute_requirements(plan, reg)
     requires = requires or bool(wf.get("force_approval"))  # e.g. plans started by a webhook trigger
     ids = {t.key: str(uuid.uuid4()) for t in plan.tasks}
@@ -181,7 +190,7 @@ async def save_plan(db: Any, wf: dict[str, Any], reg: OrgRegistry, plan: Plan) -
     updated = await db.update("workflows", {
         "status": "awaiting_approval" if requires else "running", "objective": plan.objective,
         "acceptance_criteria": plan.acceptance_criteria, "plan": plan.model_dump(), "plan_errors": [],
-        "required_permissions": permissions, "requires_approval": requires,
+        "required_permissions": permissions, "requires_approval": requires, "forecast": forecast,
         **({} if requires else {"started_at": now_iso()}),
     }, filters={"id": wf["id"], "status": "planning"})
     if not updated:  # cancelled while planning

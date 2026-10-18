@@ -29,7 +29,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from .automation import fire_due
-from .evals import choose_model, record_case, run_eval
+from .evals import choose_model, record_case, run_eval, run_replay
 from .executor import BudgetExceeded, ExecutionContext, Outcome, execute, guarded_usage
 from .integrations import ProviderNotConfigured
 from .llm import LLMError
@@ -156,6 +156,15 @@ class Worker:
                 self.evals.pop(run_id, None)
 
         self.evals[run_id] = asyncio.create_task(job(), name=f"eval-{run_id}")
+
+    def submit_replay(self, replay_id: str) -> None:
+        async def job() -> None:
+            try:
+                await run_replay(self.db, replay_id, self.provider_factory, self.secrets_factory, self.http)
+            finally:
+                self.evals.pop(replay_id, None)
+
+        self.evals[replay_id] = asyncio.create_task(job(), name=f"replay-{replay_id}")
 
     # --- scheduling ------------------------------------------------------------------------------
 
@@ -456,11 +465,12 @@ class Worker:
             if await self.db.update("workflows", {"status": "plan_failed", "error": msg, "plan_errors": [msg],
                                                   "completed_at": now_iso()}, filters={"id": w["id"], "status": "planning"}):
                 await record_event(self.db, w["org_id"], "planning_failed", msg, level="error", workflow_id=w["id"])
-        for r in await self.db.select("eval_runs", filters={"status": ("in", ["queued", "running"]), "created_at": ("lt", cutoff)}):
-            if r["id"] not in self.evals:
-                await self.db.update("eval_runs", {"status": "failed", "completed_at": now_iso(),
-                                                   "error": "evaluation was interrupted (server restart); run it again"},
-                                     filters={"id": r["id"], "status": r["status"]})
+        for table in ("eval_runs", "replays"):
+            for r in await self.db.select(table, filters={"status": ("in", ["queued", "running"]), "created_at": ("lt", cutoff)}):
+                if r["id"] not in self.evals:
+                    await self.db.update(table, {"status": "failed", "completed_at": now_iso(),
+                                                 "error": "interrupted by a server restart; run it again"},
+                                         filters={"id": r["id"], "status": r["status"]})
         if recovered:
             self.notify()
         return recovered
