@@ -3,6 +3,7 @@
 import { AlertTriangle, Check, Copy, Info, Loader2, X } from "lucide-react";
 import { type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes,
   type TextareaHTMLAttributes, forwardRef, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -272,7 +273,8 @@ export function Modal({ open, onClose, title, children, footer, wide }: {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
   if (!open) return null;
-  return (
+  // Portal to <body>: a modal opened inside a sticky or transformed container would otherwise be trapped in its stacking context.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-[10vh] backdrop-blur-sm" onMouseDown={onClose}>
       <div role="dialog" aria-modal className={cx("surface w-full shadow-2xl", wide ? "max-w-3xl" : "max-w-lg")} onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
@@ -282,7 +284,8 @@ export function Modal({ open, onClose, title, children, footer, wide }: {
         <div className="px-5 py-4">{children}</div>
         {footer && <div className="flex justify-end gap-2 border-t border-line px-5 py-3">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

@@ -39,3 +39,5 @@ export type EvalResult = Row<"eval_results">;
 export type AgentProposal = Row<"agent_proposals">;
 export type ApiToken = Row<"api_tokens">;
 export type Trigger = Row<"triggers">;
+export type Replay = Row<"replays">;
+export type Invitation = Row<"invitations">;

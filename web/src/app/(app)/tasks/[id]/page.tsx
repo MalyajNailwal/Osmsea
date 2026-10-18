@@ -7,13 +7,15 @@ import {
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { type ReactNode, useMemo, useState } from "react";
+import { ForecastCard } from "@/components/forecast";
 import { PlanDag } from "@/components/plan-dag";
 import { useApp } from "@/components/providers";
+import { ReplayButton } from "@/components/replay";
 import {
   Badge, Banner, Button, Card, CardHeader, CodeBlock, CopyButton, cx, download, EmptyState, Markdown, Segmented, Skeleton,
   StatusBadge, Tabs, Textarea,
 } from "@/components/ui";
-import { api, errorMessage } from "@/lib/api";
+import { api, errorMessage, type Forecast } from "@/lib/api";
 import { clockTime, compact, duration, timeAgo, usd } from "@/lib/format";
 import { unwrap, useLive, useNow } from "@/lib/hooks";
 import { type Artifact, type Execution, type ExecutionEvent, type Task, supabase } from "@/lib/supabase";
@@ -107,6 +109,7 @@ function TaskItem({ task, index, executions, selected, onSelect, now }: {
                 <span className="font-medium text-ink">Attempt {ex.attempt}</span>
                 <StatusBadge status={ex.status} />
                 <span className="text-ink-3">{ex.model ?? ex.provider ?? ""} · {compact(ex.input_tokens + ex.output_tokens)} tok · {duration(ex.started_at, ex.finished_at, now)}</span>
+                {!["running", "verifying"].includes(ex.status) && <ReplayButton execution={ex} />}
               </div>
               {((ex.steps as Step[] | null) ?? []).map((s) => <StepRow key={s.n} step={s} />)}
               {ex.error && <div className="text-[11.5px] text-bad/90">{ex.error}</div>}
@@ -327,6 +330,8 @@ export default function WorkflowPage() {
           </div>
         </Card>
       )}
+
+      {wf.forecast != null && <ForecastCard forecast={wf.forecast as unknown as Forecast} wf={wf} now={now} />}
 
       {tasks.length > 0 && (
         <div className="grid gap-4 xl:grid-cols-[400px_minmax(0,1fr)]">

@@ -12,7 +12,7 @@ import { type AgentProposal, type AgentVersion, type EvalRun, supabase } from "@
 type DiffLine = { kind: "same" | "add" | "del"; text: string };
 
 // ponytail: O(n·m) LCS line diff; specs are capped at 64 KB (a few hundred lines), so this stays instant.
-function lineDiff(a: string, b: string): DiffLine[] {
+export function lineDiff(a: string, b: string): DiffLine[] {
   const x = a.split("\n"), y = b.split("\n");
   const dp = Array.from({ length: x.length + 1 }, () => new Uint16Array(y.length + 1));
   for (let i = x.length - 1; i >= 0; i--)
@@ -316,7 +316,7 @@ export function ImprovePanel({ orgId, agentId, versions, activeVersionId, isAdmi
   );
 }
 
-function SpecDiff({ before, after }: { before: string; after: string }) {
+export function SpecDiff({ before, after }: { before: string; after: string }) {
   const lines = lineDiff(before, after);
   const added = lines.filter((l) => l.kind === "add").length, removed = lines.filter((l) => l.kind === "del").length;
   return (

@@ -2,13 +2,14 @@
 
 import { Activity, CheckCircle2, Download, RefreshCw, Search, ShieldAlert, Users } from "lucide-react";
 import { useMemo, useState } from "react";
+import { MembersSection } from "@/components/members";
 import { useApp } from "@/components/providers";
 import {
   Badge, Banner, Button, Card, CardHeader, EmptyState, Field, Input, PageHeader, Select, Skeleton, Stat, StatusBadge, Tabs,
   Textarea, Toggle, download,
 } from "@/components/ui";
 import { api, errorMessage, type OrgSettings } from "@/lib/api";
-import { dateTime, timeAgo } from "@/lib/format";
+import { dateTime } from "@/lib/format";
 import { unwrap, useLive, useNow } from "@/lib/hooks";
 import { supabase } from "@/lib/supabase";
 
@@ -362,24 +363,7 @@ export default function GovernancePage() {
         </Card>
       )}
 
-      {tab === "members" && (
-        <Card>
-          <CardHeader title="Members" subtitle="Roles are enforced by the backend on every write and by row-level security on every read." />
-          <div className="divide-y divide-line">
-            {data?.members.map((m) => (
-              <div key={m.user_id} className="flex items-center gap-3 px-5 py-3">
-                <div className="grid size-8 place-items-center rounded-full bg-gradient-to-br from-accent to-accent-2 text-xs font-semibold uppercase">
-                  {(m.email || "?").slice(0, 1)}
-                </div>
-                <div className="min-w-0 flex-1 truncate text-sm text-ink">{m.email || m.user_id}</div>
-                <Badge tone={m.role === "owner" || m.role === "admin" ? "accent" : "neutral"}>{m.role}</Badge>
-                <span className="w-28 text-right text-[11px] text-ink-3">joined {timeAgo(m.created_at, now)}</span>
-              </div>
-            ))}
-          </div>
-          <p className="border-t border-line px-5 py-3 text-xs text-ink-3">Member invitations are not implemented yet.</p>
-        </Card>
-      )}
+      {tab === "members" && <MembersSection />}
     </div>
   );
 }

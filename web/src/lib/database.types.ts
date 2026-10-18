@@ -969,6 +969,56 @@ export type Database = {
           },
         ]
       }
+      invitations: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string | null
+          org_id: string
+          revoked_at: string | null
+          role: string
+          token_hash: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          email: string
+          expires_at: string
+          id?: string
+          invited_by?: string | null
+          org_id: string
+          revoked_at?: string | null
+          role: string
+          token_hash: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          org_id?: string
+          revoked_at?: string | null
+          role?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invitations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mcp_server_secrets: {
         Row: {
           secret_id: string
@@ -1202,6 +1252,97 @@ export type Database = {
         }
         Relationships: []
       }
+      replays: {
+        Row: {
+          agent_id: string | null
+          completed_at: string | null
+          cost_usd: number | null
+          created_at: string
+          created_by: string | null
+          duration_ms: number | null
+          error: string | null
+          execution_id: string
+          id: string
+          live_calls: number
+          model: string | null
+          org_id: string
+          output: Json | null
+          passed: boolean | null
+          replayed: number
+          source_md: string
+          status: string
+          steps: Json
+          tokens: number
+          verification: Json | null
+        }
+        Insert: {
+          agent_id?: string | null
+          completed_at?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          created_by?: string | null
+          duration_ms?: number | null
+          error?: string | null
+          execution_id: string
+          id?: string
+          live_calls?: number
+          model?: string | null
+          org_id: string
+          output?: Json | null
+          passed?: boolean | null
+          replayed?: number
+          source_md: string
+          status?: string
+          steps?: Json
+          tokens?: number
+          verification?: Json | null
+        }
+        Update: {
+          agent_id?: string | null
+          completed_at?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          created_by?: string | null
+          duration_ms?: number | null
+          error?: string | null
+          execution_id?: string
+          id?: string
+          live_calls?: number
+          model?: string | null
+          org_id?: string
+          output?: Json | null
+          passed?: boolean | null
+          replayed?: number
+          source_md?: string
+          status?: string
+          steps?: Json
+          tokens?: number
+          verification?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "replays_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "replays_execution_id_fkey"
+            columns: ["execution_id"]
+            isOneToOne: false
+            referencedRelation: "agent_executions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "replays_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           acceptance_criteria: Json
@@ -1402,6 +1543,7 @@ export type Database = {
           created_by: string | null
           error: string | null
           force_approval: boolean
+          forecast: Json | null
           goal: string
           id: string
           objective: string | null
@@ -1428,6 +1570,7 @@ export type Database = {
           created_by?: string | null
           error?: string | null
           force_approval?: boolean
+          forecast?: Json | null
           goal: string
           id?: string
           objective?: string | null
@@ -1454,6 +1597,7 @@ export type Database = {
           created_by?: string | null
           error?: string | null
           force_approval?: boolean
+          forecast?: Json | null
           goal?: string
           id?: string
           objective?: string | null

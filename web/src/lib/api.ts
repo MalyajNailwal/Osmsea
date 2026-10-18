@@ -1,4 +1,4 @@
-import { type AgentProposal, type ApiToken, type EvalRun, type Integration, type McpServer, type Organization, supabase, type Trigger, type Workflow } from "./supabase";
+import { type AgentProposal, type ApiToken, type EvalRun, type Integration, type McpServer, type Organization, type Replay, supabase, type Trigger, type Workflow } from "./supabase";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -72,6 +72,15 @@ export type OrgStatus = {
   invalid_agents: Record<string, string[]>; providers: string[];
   sandbox: { available: boolean; image: string; detail: string };
 };
+export type ForecastTask = {
+  key: string; agent: string; model: string | null; runs: number; max_attempts: number;
+  pass_rate: number | null; success: number | null; cost_usd: number | null; duration_s: number | null; expected_attempts?: number;
+};
+export type Forecast = {
+  tasks: ForecastTask[]; success: number | null; cost_usd: number | null; duration_s: number | null;
+  known_tasks: number; total_tasks: number; computed_at: string;
+};
+export type InvitePreview = { organization: string; role: string; email: string; status: string; expires_at: string };
 export type TriggerInput = {
   name: string; kind: "schedule" | "webhook"; goal: string; interval_minutes?: number; start_at?: string; require_approval: boolean;
 };
@@ -153,6 +162,15 @@ export const api = {
     request<Trigger>("PATCH", `/orgs/${orgId}/triggers/${triggerId}`, body),
   deleteTrigger: (orgId: string, triggerId: string) => request<void>("DELETE", `/orgs/${orgId}/triggers/${triggerId}`),
   runTrigger: (orgId: string, triggerId: string) => request<Workflow>("POST", `/orgs/${orgId}/triggers/${triggerId}/run`),
+  invite: (orgId: string, email: string, role: string) =>
+    request<{ id: string; email: string; role: string; expires_at: string; url: string }>("POST", `/orgs/${orgId}/invitations`, { email, role }),
+  revokeInvite: (orgId: string, invitationId: string) => request<void>("DELETE", `/orgs/${orgId}/invitations/${invitationId}`),
+  previewInvite: (token: string) => request<InvitePreview>("POST", "/invitations/preview", { token }),
+  acceptInvite: (token: string) => request<{ org_id: string; role: string }>("POST", "/invitations/accept", { token }),
+  setMemberRole: (orgId: string, userId: string, role: string) => request<unknown>("PATCH", `/orgs/${orgId}/members/${userId}`, { role }),
+  removeMember: (orgId: string, userId: string) => request<void>("DELETE", `/orgs/${orgId}/members/${userId}`),
+  replay: (orgId: string, executionId: string, body: { source_md?: string; model?: string }) =>
+    request<Replay>("POST", `/orgs/${orgId}/executions/${executionId}/replays`, body),
   addMemory: (orgId: string, body: { kind: "note" | "decision"; title: string; content: string; tags: string[] }) =>
     request<{ id: string }>("POST", `/orgs/${orgId}/memory`, body),
   deleteMemory: (orgId: string, memoryId: string) => request<void>("DELETE", `/orgs/${orgId}/memory/${memoryId}`),

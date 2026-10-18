@@ -7,6 +7,12 @@ import { Logo } from "@/components/shell";
 import { Banner, Button, Field, Input, Segmented } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 
+/** Where to go after signing in: only same-site paths (no open redirects). */
+function nextPath(): string {
+  const next = new URLSearchParams(window.location.search).get("next") ?? "/";
+  return next.startsWith("/") && !next.startsWith("//") ? next : "/";
+}
+
 export default function LoginPage() {
   const { session } = useApp();
   const router = useRouter();
@@ -17,7 +23,7 @@ export default function LoginPage() {
   const [message, setMessage] = useState<{ tone: "bad" | "ok"; text: string } | null>(null);
 
   useEffect(() => {
-    if (session) router.replace("/");
+    if (session) router.replace(nextPath());
   }, [session, router]);
 
   const submit = async (e: FormEvent) => {
@@ -26,7 +32,7 @@ export default function LoginPage() {
     setMessage(null);
     const { data, error } = mode === "signin"
       ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } });
+      : await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin + nextPath() } });
     setBusy(false);
     if (error) return setMessage({ tone: "bad", text: error.message });
     if (mode === "signup" && !data.session) {
