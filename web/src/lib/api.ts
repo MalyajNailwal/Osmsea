@@ -1,4 +1,4 @@
-import { type Integration, type McpServer, type Organization, supabase, type Workflow } from "./supabase";
+import { type AgentProposal, type EvalRun, type Integration, type McpServer, type Organization, supabase, type Workflow } from "./supabase";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -44,6 +44,8 @@ export type OrgSettings = {
   require_plan_approval: boolean; max_concurrent_tasks: number; task_timeout_seconds: number; max_attempts: number;
   workflow_token_budget: number; max_tasks_per_plan: number; default_model: string | null;
   tool_policy: Record<string, { enabled: boolean; requires_approval: boolean }>;
+  require_eval_for_activation: boolean; eval_min_pass_rate: number; eval_max_cases: number;
+  model_routing: "fixed" | "auto"; routing_models: string[]; routing_min_runs: number; routing_target_pass_rate: number;
 };
 export type Catalog = { tools: ToolInfo[]; output_schemas: OutputSchemaInfo[]; providers: ProviderInfo[]; default_settings: OrgSettings };
 export type DraftAgent = { id: string; source_md: string; valid: boolean; errors: string[] };
@@ -77,6 +79,25 @@ export type OrgTools = {
 };
 export type McpServerInput = { name: string; slug: string; url: string; auth_header?: string; secret?: string; require_approval?: boolean };
 export type McpServerUpdate = { approved_tools?: string[]; require_approval?: boolean; enabled?: boolean; secret?: string; clear_secret?: boolean };
+
+export type ModelStat = {
+  agent_id: string; model: string; runs: number; passed: number; pass_rate: number; live_runs: number; eval_runs: number;
+  avg_tokens: number; total_cost_usd: number | null; cost_per_pass: number | null;
+};
+export type AgentInsights = {
+  failures: {
+    window: number; verified_runs: number; passed: number; failed: number; infra_failures: number;
+    failed_checks: Record<string, number>; unmet_criteria: { criterion: string; count: number }[];
+    examples: { execution_id: string; failed: string[] }[]; infra_errors: string[];
+  };
+  models: ModelStat[];
+  routing: { model: string | null; reason: string };
+  eval_cases: number;
+};
+export type EvalSummary = {
+  cases: number; passed: number; pass_rate: number; baseline_passed: number; baseline_pass_rate: number;
+  total_cost_usd: number | null; cost_per_pass: number | null; avg_tokens: number; replayed_calls: number; live_calls: number;
+};
 
 export const api = {
   catalog: () => request<Catalog>("GET", "/catalog"),
@@ -115,6 +136,12 @@ export const api = {
   updateMcpServer: (orgId: string, serverId: string, body: McpServerUpdate) =>
     request<McpServer>("PATCH", `/orgs/${orgId}/mcp-servers/${serverId}`, body),
   deleteMcpServer: (orgId: string, serverId: string) => request<void>("DELETE", `/orgs/${orgId}/mcp-servers/${serverId}`),
+  insights: (orgId: string, agentId: string) => request<AgentInsights>("GET", `/orgs/${orgId}/agents/${agentId}/insights`),
+  startEval: (orgId: string, agentId: string, body: { source_md?: string; models?: string[] }) =>
+    request<EvalRun[]>("POST", `/orgs/${orgId}/agents/${agentId}/evals`, body),
+  proposeRevision: (orgId: string, agentId: string) => request<AgentProposal>("POST", `/orgs/${orgId}/agents/${agentId}/proposals`),
+  decideProposal: (orgId: string, proposalId: string, decision: "accept" | "reject") =>
+    request<AgentProposal>("POST", `/orgs/${orgId}/proposals/${proposalId}/${decision}`),
   addMemory: (orgId: string, body: { kind: "note" | "decision"; title: string; content: string; tags: string[] }) =>
     request<{ id: string }>("POST", `/orgs/${orgId}/memory`, body),
   deleteMemory: (orgId: string, memoryId: string) => request<void>("DELETE", `/orgs/${orgId}/memory/${memoryId}`),

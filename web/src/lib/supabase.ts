@@ -34,3 +34,6 @@ export type Integration = Row<"integrations">;
 export type AuditEvent = Row<"audit_events">;
 export type Member = Row<"organization_members">;
 export type McpServer = Row<"mcp_servers">;
+export type EvalRun = Row<"eval_runs">;
+export type EvalResult = Row<"eval_results">;
+export type AgentProposal = Row<"agent_proposals">;

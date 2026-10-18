@@ -257,6 +257,50 @@ export default function GovernancePage() {
                       onChange={(e) => setDraft({ ...settings, default_model: e.target.value.trim() || null })} />
                   </Field>
                 </div>
+
+                <h4 className="mt-7 text-sm font-semibold text-ink">Evaluation gate</h4>
+                <div className="mt-3 flex items-center justify-between gap-4 rounded-xl border border-line bg-panel-2/50 px-4 py-3">
+                  <div>
+                    <div className="text-sm font-medium text-ink">Require a passing evaluation before activation</div>
+                    <div className="text-xs text-ink-3">New agent versions (manual edits and accepted proposals) must pass at least as many recorded cases as before.</div>
+                  </div>
+                  <Toggle label="Require evaluation for activation" checked={settings.require_eval_for_activation} disabled={!isAdmin}
+                    onChange={(v) => setDraft({ ...settings, require_eval_for_activation: v })} />
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <Field label="Minimum pass rate (%)" hint="Floor applied in addition to the recorded baseline (0–100).">
+                    <Input type="number" min={0} max={100} disabled={!isAdmin} value={String(Math.round(settings.eval_min_pass_rate * 100))}
+                      onChange={(e) => setDraft({ ...settings, eval_min_pass_rate: Number(e.target.value) / 100 })} />
+                  </Field>
+                  <Field label="Cases per evaluation" hint="Most recent cases replayed per run (1–50).">
+                    <Input type="number" min={1} max={50} disabled={!isAdmin} value={String(settings.eval_max_cases)}
+                      onChange={(e) => setDraft({ ...settings, eval_max_cases: Number(e.target.value) })} />
+                  </Field>
+                </div>
+
+                <h4 className="mt-7 text-sm font-semibold text-ink">Model routing</h4>
+                <div className="mt-3 flex items-center justify-between gap-4 rounded-xl border border-line bg-panel-2/50 px-4 py-3">
+                  <div>
+                    <div className="text-sm font-medium text-ink">Auto-route to the cheapest model that meets the bar</div>
+                    <div className="text-xs text-ink-3">Per agent, from verified runs and evaluations. Models pinned in an agent spec always win; otherwise the default model is used until a candidate has enough evidence.</div>
+                  </div>
+                  <Toggle label="Auto model routing" checked={settings.model_routing === "auto"} disabled={!isAdmin}
+                    onChange={(v) => setDraft({ ...settings, model_routing: v ? "auto" : "fixed" })} />
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <Field label="Candidate models" hint="Comma-separated model ids (up to 8)." className="md:col-span-2">
+                    <Input disabled={!isAdmin} value={settings.routing_models.join(", ")} placeholder="openai/gpt-oss-20b:free, meta-llama/llama-3.3-70b-instruct:free"
+                      onChange={(e) => setDraft({ ...settings, routing_models: e.target.value.split(",").map((m) => m.trim()).filter(Boolean) })} />
+                  </Field>
+                  <Field label="Minimum verified runs" hint="Evidence needed before a model is eligible (1–100).">
+                    <Input type="number" min={1} max={100} disabled={!isAdmin} value={String(settings.routing_min_runs)}
+                      onChange={(e) => setDraft({ ...settings, routing_min_runs: Number(e.target.value) })} />
+                  </Field>
+                  <Field label="Target pass rate (%)" hint="Models below this are never chosen.">
+                    <Input type="number" min={0} max={100} disabled={!isAdmin} value={String(Math.round(settings.routing_target_pass_rate * 100))}
+                      onChange={(e) => setDraft({ ...settings, routing_target_pass_rate: Number(e.target.value) / 100 })} />
+                  </Field>
+                </div>
                 {isAdmin ? (
                   <div className="mt-5 flex gap-2">
                     <Button variant="primary" loading={busy === "limits"} disabled={!draft} onClick={saveSettings}>Save limits</Button>

@@ -195,6 +195,9 @@ const STATUS: Record<string, { tone: Tone; label: string; pulse?: boolean }> = {
   success: { tone: "ok", label: "Success" },
   failure: { tone: "bad", label: "Failure" },
   denied: { tone: "warn", label: "Denied" },
+  proposed: { tone: "info", label: "Proposed" },
+  accepted: { tone: "ok", label: "Accepted" },
+  superseded: { tone: "neutral", label: "Superseded" },
 };
 
 export function StatusBadge({ status, className }: { status: string; className?: string }) {

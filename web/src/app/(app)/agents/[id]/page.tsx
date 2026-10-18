@@ -4,6 +4,7 @@ import { Bot, Check, ChevronRight, History, Lock, Pencil, Power, ShieldCheck, X 
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { type ReactNode, useState } from "react";
+import { ImprovePanel } from "@/components/improve-panel";
 import { useApp } from "@/components/providers";
 import {
   Badge, Banner, Button, Card, CardHeader, CodeBlock, cx, EmptyState, Field, Input, Modal, Skeleton, StatusBadge, Tabs,
@@ -14,7 +15,7 @@ import { compact, duration, timeAgo, usd } from "@/lib/format";
 import { unwrap, useLive, useNow } from "@/lib/hooks";
 import { type AgentVersion, supabase } from "@/lib/supabase";
 
-type TabId = "overview" | "permissions" | "activity" | "instructions" | "versions";
+type TabId = "overview" | "permissions" | "activity" | "improve" | "instructions" | "versions";
 type CheckResult = { name: string; passed: boolean; detail: string };
 
 export default function AgentDetailPage() {
@@ -197,6 +198,7 @@ function AgentView({ id }: { id: string }) {
         { id: "overview", label: "Overview" },
         { id: "permissions", label: "Permissions", count: allowedCount },
         { id: "activity", label: "Activity", count: executions.length },
+        { id: "improve", label: "Improve" },
         { id: "instructions", label: "Instructions" },
         { id: "versions", label: "Versions", count: `v${active?.version ?? "–"}` },
       ]} />
@@ -352,6 +354,10 @@ function AgentView({ id }: { id: string }) {
             {!executions.length && <EmptyState icon={<History className="size-5" />} title="No executions yet" description="Runs appear here once a plan assigns this agent a task." />}
           </div>
         </Card>
+      )}
+
+      {tab === "improve" && (
+        <ImprovePanel orgId={org.id} agentId={agent.id} versions={versions} activeVersionId={agent.active_version_id} isAdmin={isAdmin} />
       )}
 
       {tab === "instructions" && (

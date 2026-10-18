@@ -29,10 +29,12 @@ export type Database = {
           output: Json | null
           output_tokens: number
           provider: string | null
+          routing: Json | null
           started_at: string
           status: string
           steps: Json
           task_id: string
+          tool_recordings: Json
           verification: Json | null
           worker_id: string | null
           workflow_id: string
@@ -51,10 +53,12 @@ export type Database = {
           output?: Json | null
           output_tokens?: number
           provider?: string | null
+          routing?: Json | null
           started_at?: string
           status?: string
           steps?: Json
           task_id: string
+          tool_recordings?: Json
           verification?: Json | null
           worker_id?: string | null
           workflow_id: string
@@ -73,10 +77,12 @@ export type Database = {
           output?: Json | null
           output_tokens?: number
           provider?: string | null
+          routing?: Json | null
           started_at?: string
           status?: string
           steps?: Json
           task_id?: string
+          tool_recordings?: Json
           verification?: Json | null
           worker_id?: string | null
           workflow_id?: string
@@ -115,6 +121,89 @@ export type Database = {
             columns: ["workflow_id"]
             isOneToOne: false
             referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_proposals: {
+        Row: {
+          agent_id: string
+          base_version_id: string | null
+          changes: Json
+          created_at: string
+          created_by: string | null
+          decided_at: string | null
+          decided_by: string | null
+          eval_run_id: string | null
+          failure_report: Json
+          id: string
+          model: string | null
+          org_id: string
+          rationale: string
+          source_md: string
+          status: string
+        }
+        Insert: {
+          agent_id: string
+          base_version_id?: string | null
+          changes?: Json
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          eval_run_id?: string | null
+          failure_report?: Json
+          id?: string
+          model?: string | null
+          org_id: string
+          rationale: string
+          source_md: string
+          status?: string
+        }
+        Update: {
+          agent_id?: string
+          base_version_id?: string | null
+          changes?: Json
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          eval_run_id?: string | null
+          failure_report?: Json
+          id?: string
+          model?: string | null
+          org_id?: string
+          rationale?: string
+          source_md?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_proposals_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_proposals_base_version_id_fkey"
+            columns: ["base_version_id"]
+            isOneToOne: false
+            referencedRelation: "agent_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_proposals_eval_run_id_fkey"
+            columns: ["eval_run_id"]
+            isOneToOne: false
+            referencedRelation: "eval_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_proposals_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -446,6 +535,235 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "departments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eval_cases: {
+        Row: {
+          agent_id: string
+          baseline: Json
+          created_at: string
+          id: string
+          org_id: string
+          prerequisites: Json
+          recordings: Json
+          source_execution_id: string | null
+          source_task_id: string | null
+          status: string
+          task: Json
+          title: string
+        }
+        Insert: {
+          agent_id: string
+          baseline?: Json
+          created_at?: string
+          id?: string
+          org_id: string
+          prerequisites?: Json
+          recordings?: Json
+          source_execution_id?: string | null
+          source_task_id?: string | null
+          status?: string
+          task: Json
+          title: string
+        }
+        Update: {
+          agent_id?: string
+          baseline?: Json
+          created_at?: string
+          id?: string
+          org_id?: string
+          prerequisites?: Json
+          recordings?: Json
+          source_execution_id?: string | null
+          source_task_id?: string | null
+          status?: string
+          task?: Json
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eval_cases_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eval_cases_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eval_cases_source_execution_id_fkey"
+            columns: ["source_execution_id"]
+            isOneToOne: true
+            referencedRelation: "agent_executions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eval_cases_source_task_id_fkey"
+            columns: ["source_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eval_results: {
+        Row: {
+          agent_id: string | null
+          cost_usd: number | null
+          created_at: string
+          duration_ms: number | null
+          error: string | null
+          eval_case_id: string | null
+          eval_run_id: string
+          id: string
+          live_calls: number
+          model: string | null
+          org_id: string
+          passed: boolean
+          replayed: number
+          steps: Json
+          tokens: number
+          verification: Json | null
+        }
+        Insert: {
+          agent_id?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          eval_case_id?: string | null
+          eval_run_id: string
+          id?: string
+          live_calls?: number
+          model?: string | null
+          org_id: string
+          passed: boolean
+          replayed?: number
+          steps?: Json
+          tokens?: number
+          verification?: Json | null
+        }
+        Update: {
+          agent_id?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          eval_case_id?: string | null
+          eval_run_id?: string
+          id?: string
+          live_calls?: number
+          model?: string | null
+          org_id?: string
+          passed?: boolean
+          replayed?: number
+          steps?: Json
+          tokens?: number
+          verification?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eval_results_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eval_results_eval_case_id_fkey"
+            columns: ["eval_case_id"]
+            isOneToOne: false
+            referencedRelation: "eval_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eval_results_eval_run_id_fkey"
+            columns: ["eval_run_id"]
+            isOneToOne: false
+            referencedRelation: "eval_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eval_results_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eval_runs: {
+        Row: {
+          agent_id: string
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          error: string | null
+          id: string
+          kind: string
+          model: string | null
+          org_id: string
+          proposal_id: string | null
+          source_md: string
+          source_sha256: string
+          started_at: string | null
+          status: string
+          summary: Json
+        }
+        Insert: {
+          agent_id: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          kind?: string
+          model?: string | null
+          org_id: string
+          proposal_id?: string | null
+          source_md: string
+          source_sha256: string
+          started_at?: string | null
+          status?: string
+          summary?: Json
+        }
+        Update: {
+          agent_id?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          kind?: string
+          model?: string | null
+          org_id?: string
+          proposal_id?: string | null
+          source_md?: string
+          source_sha256?: string
+          started_at?: string | null
+          status?: string
+          summary?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eval_runs_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eval_runs_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1212,4 +1530,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
