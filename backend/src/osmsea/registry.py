@@ -105,6 +105,7 @@ class OrgRegistry:
                 "limitations": a.spec.limitations,
                 "tools": tools,
                 "output": a.spec.output_schema,
+                "tests_executed": a.spec.verification.run_tests,
             })
         return catalog
 

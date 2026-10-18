@@ -32,8 +32,11 @@ RESEARCH_ONLY = {**PLAN, "tasks": [PLAN["tasks"][0]]}
 CODE = {"summary": "Adds a minimal async HTTP helper built on httpx.",
         "files": [{"path": "client.py", "language": "python", "action": "create",
                    "content": "import httpx\n\n\nasync def get_json(url: str) -> dict:\n    async with httpx.AsyncClient() as c:\n"
-                              "        r = await c.get(url)\n        r.raise_for_status()\n        return r.json()\n"}],
-        "test_plan": ["Call get_json against a mock server", "Assert HTTP errors raise"], "risks": []}
+                              "        r = await c.get(url)\n        r.raise_for_status()\n        return r.json()\n"},
+                  {"path": "test_client.py", "language": "python", "action": "create",
+                   "content": "from client import get_json\n\n\ndef test_importable():\n    assert callable(get_json)\n"}],
+        "test_plan": ["Call get_json against a mock server", "Assert HTTP errors raise"], "risks": [],
+        "test_command": "python -m pytest -q"}
 
 
 async def seed_memory(db, org_id):
@@ -184,7 +187,7 @@ async def test_end_to_end_goal_plan_approve_execute_verify(db, client_factory):
     assert all(t["status"] == "completed" and t["agent_version_id"] for t in tasks.values())
     research_checks = {c["name"]: c["passed"] for c in tasks["research"]["verification"]["checks"]}
     assert research_checks == {"schema": True, "cited_evidence": True, "min_sources": True, "independent_review": True}
-    assert {c["name"] for c in tasks["build"]["verification"]["checks"]} == {"schema", "syntax", "independent_review"}
+    assert {c["name"] for c in tasks["build"]["verification"]["checks"]} == {"schema", "syntax", "tests", "independent_review"}
     assert (await db.select("approvals", filters={"workflow_id": wf_id}))[0]["status"] == "approved"
 
     calls = client.provider.calls

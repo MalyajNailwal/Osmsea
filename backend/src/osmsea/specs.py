@@ -44,6 +44,7 @@ class VerificationSpec(_Strict):
     require_cited_evidence: bool = False  # every cited source must have been retrieved in this execution
     min_sources: int = Field(0, ge=0, le=20)  # distinct retrieved sources the output must cite
     syntax_check: bool = False  # parse Python/JSON files in code outputs
+    run_tests: bool = False  # run the output's test_command against its files in the offline Docker sandbox
     independent_review: bool = True  # separate model call judges output against acceptance criteria
 
 

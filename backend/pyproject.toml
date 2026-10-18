@@ -30,3 +30,4 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = ["real_sandbox: runs code in the real Docker sandbox (skipped when Docker or the image is unavailable)"]

@@ -34,6 +34,7 @@ from .integrations import ProviderNotConfigured
 from .llm import LLMError
 from .planner import PLAN_TIMEOUT_SECONDS, Conflict, ProviderFactory, plan_workflow
 from .registry import load_registry, spec_from_row
+from .sandbox import SandboxUnavailable
 from .schemas import CodeChange, Report, ResearchResult
 from .specs import AgentSpec, SpecError, parse_settings
 from .store import now_iso, parse_ts, record_audit, record_event
@@ -268,7 +269,7 @@ class Worker:
                 exec_status, outcome = "timed_out", Outcome(False, error=f"timed out after {timeout}s")
         except BudgetExceeded as e:
             outcome = Outcome(False, error=str(e), retryable=False)
-        except (ProviderNotConfigured, SpecError) as e:
+        except (ProviderNotConfigured, SpecError, SandboxUnavailable) as e:
             outcome = Outcome(False, error=str(e), retryable=False)
         except LLMError as e:
             outcome = Outcome(False, error=f"model error: {e}", retryable=e.retryable)

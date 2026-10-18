@@ -24,6 +24,7 @@ from .executor import BudgetExceeded, ExecutionContext, Outcome, execute
 from .integrations import ProviderNotConfigured
 from .llm import LLMError, LLMResponse
 from .registry import OrgRegistry, load_registry
+from .sandbox import SandboxUnavailable
 from .specs import AgentSpec, OrgSettings, SpecError, parse_agent_markdown
 from .store import StoreError, now_iso, record_audit
 from .tools import ToolContext
@@ -139,6 +140,8 @@ async def _run_case(db: Any, run: dict[str, Any], case: dict[str, Any], spec: Ag
         outcome = Outcome(False, error=str(e))
     except LLMError as e:
         outcome = Outcome(False, error=f"model error: {e}")
+    except SandboxUnavailable as e:
+        outcome = Outcome(False, error=f"sandbox unavailable: {e}")
     row = {
         "org_id": run["org_id"], "eval_run_id": run["id"], "eval_case_id": case["id"], "agent_id": agent["id"],
         "passed": outcome.succeeded, "verification": outcome.verification, "error": outcome.error,

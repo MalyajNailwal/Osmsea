@@ -88,6 +88,7 @@ class CodeChange(Strict):
     files: list[FileChange] = Field(min_length=1, max_length=20)
     test_plan: list[Line] = Field(min_length=1, max_length=20)
     risks: list[Line] = Field(default_factory=list, max_length=20)
+    test_command: _str(1, 300) | None = None  # e.g. "python -m pytest -q"; run in the sandbox when the spec asks
 
     @model_validator(mode="after")
     def _unique_paths(self) -> CodeChange:

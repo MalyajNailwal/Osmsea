@@ -11,6 +11,7 @@ from osmsea.auth import User
 from osmsea.config import Config
 from osmsea.integrations import tool_secrets
 from osmsea.llm import LLMResponse, ScriptedProvider, tool_reply
+from osmsea import sandbox
 from osmsea.orgs import Actor, create_organization
 from osmsea.specs import load_organization_dir
 from osmsea.store import MemoryStore
@@ -56,6 +57,28 @@ def tool_names(tools: list[dict[str, Any]]) -> set[str]:
 
 def tool_results(messages: list[dict[str, Any]]) -> list[str]:
     return [m["content"] for m in messages if m["role"] == "tool"]
+
+
+@pytest.fixture(autouse=True)
+def fake_sandbox(monkeypatch, request):
+    """Tests don't need Docker: sandbox runs pass unless a test sets `fake_sandbox.result`.
+    Tests marked `real_sandbox` use the real Docker sandbox instead."""
+    class Fake:
+        calls: list[tuple[list[tuple[str, str]], str]] = []
+        result: sandbox.SandboxResult | Exception | list = sandbox.SandboxResult(0, "1 passed in 0.01s", 5)
+
+        async def run(self, files, command, **_):
+            self.calls.append((files, command))
+            result = self.result.pop(0) if isinstance(self.result, list) else self.result
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+    fake = Fake()
+    fake.calls = []
+    if "real_sandbox" not in request.keywords:
+        monkeypatch.setattr(sandbox, "run", fake.run)
+    return fake
 
 
 @pytest.fixture
