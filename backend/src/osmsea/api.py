@@ -14,13 +14,13 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 import httpx
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.routing import Route
 from pydantic import BaseModel, Field
 
-from . import automation, improve, mcp_server, members, orgs, sandbox
+from . import actions, automation, improve, knowledge, mcp_server, members, orgs, sandbox
 from .auth import Authenticator, User, member_role, role_allows
 from .builder import propose_organization
 from .config import Config
@@ -116,6 +116,11 @@ class McpServerUpdateIn(BaseModel):
     enabled: bool | None = None
     secret: str | None = Field(None, max_length=2000)
     clear_secret: bool = False
+
+
+class DocumentUrlIn(BaseModel):
+    url: str = Field(min_length=8, max_length=2000)
+    title: str | None = Field(None, max_length=300)
 
 
 class InviteIn(BaseModel):
@@ -429,6 +434,38 @@ def create_app(config: Config | None = None, *, db: Any = None, provider_factory
     async def decide_proposal(org_id: UUID, proposal_id: UUID, decision: Literal["accept", "reject"], request: Request,
                               actor: Admin) -> dict[str, Any]:
         return await improve.decide_proposal(state(request).db, str(org_id), str(proposal_id), actor, decision == "accept")
+
+    # --- knowledge base ----------------------------------------------------------------------------
+
+    @app.post("/orgs/{org_id}/documents", status_code=201)
+    async def upload_document(org_id: UUID, request: Request, actor: Member, file: Annotated[UploadFile, File()],
+                              title: Annotated[str | None, Form(max_length=300)] = None) -> dict[str, Any]:
+        data = await file.read(knowledge.MAX_BYTES + 1)
+        return await knowledge.add_upload(state(request).db, str(org_id), actor, filename=file.filename or "upload.txt",
+                                          data=data, mime=file.content_type, title=title)
+
+    @app.post("/orgs/{org_id}/documents/url", status_code=201)
+    async def add_document_url(org_id: UUID, body: DocumentUrlIn, request: Request, actor: Member) -> dict[str, Any]:
+        return await knowledge.add_url(state(request).db, str(org_id), actor, body.url, body.title)
+
+    @app.delete("/orgs/{org_id}/documents/{document_id}", status_code=204)
+    async def delete_document(org_id: UUID, document_id: UUID, request: Request, actor: Admin) -> None:
+        await knowledge.delete(state(request).db, str(org_id), str(document_id), actor)
+
+    @app.get("/orgs/{org_id}/documents/search")
+    async def search_documents(org_id: UUID, q: str, request: Request, _: Viewer, limit: int = 8) -> list[dict[str, Any]]:
+        if not 1 <= len(q) <= 300:
+            raise HTTPException(422, "q must be 1-300 characters")
+        return await knowledge.search(state(request).db, str(org_id), q, max(1, min(limit, 20)))
+
+    # --- actions (approval-gated deliveries) --------------------------------------------------------
+
+    @app.post("/orgs/{org_id}/actions/{action_id}/{decision}")
+    async def decide_action(org_id: UUID, action_id: UUID, decision: Literal["approve", "reject"], request: Request,
+                            actor: Admin) -> dict[str, Any]:
+        s = state(request)
+        return await actions.decide(s.db, s.http, str(org_id), str(action_id), actor, approve=decision == "approve",
+                                    web_url=config.web_url)
 
     # --- members & invitations ---------------------------------------------------------------------
 

@@ -21,6 +21,7 @@ allowed_tools:
   - web_search
   - fetch_url
   - memory_search
+  - knowledge_search
 inputs:
   - A research question or topic from the task description
   - Outputs of prerequisite tasks, when present
@@ -47,6 +48,8 @@ limits:
 
 1. Decide precisely which question the task asks you to answer.
 2. If shared memory may already contain relevant verified findings, call `memory_search` first and reuse them.
+   If the question concerns the organization's own documents (policies, handbooks, specs, contracts), call
+   `knowledge_search` and cite the passages it returns as `doc:<document>/<passage>`, copied exactly.
 3. Use `web_search` to find candidate sources, then `fetch_url` to read the most relevant two to five.
    If `web_search` is not available to you, fetch well-known primary sources directly by URL.
 4. Extract concrete claims. Each claim must be supported by at least one source you retrieved in this task.

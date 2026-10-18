@@ -26,7 +26,7 @@ def test_template_organization_is_valid():
     assert {d.id for d in org.departments} == {"research", "engineering"}
     assert {a.id for a in org.agents} == {"researcher", "developer"}
     researcher = next(a for a in org.agents if a.id == "researcher")
-    assert researcher.allowed_tools == ["web_search", "fetch_url", "memory_search"]
+    assert researcher.allowed_tools == ["web_search", "fetch_url", "memory_search", "knowledge_search"]
     assert researcher.instructions.startswith("# Research Agent")
 
 
@@ -122,12 +122,12 @@ def _registry(settings=None, providers=()):
 def test_effective_tools_intersects_policy_integrations_and_approval():
     reg, spec = _registry()
     allowed, unavailable = reg.effective_tools(spec)
-    assert allowed == ["fetch_url", "memory_search"]
+    assert allowed == ["fetch_url", "memory_search", "knowledge_search"]
     assert "integration" in unavailable["web_search"]
 
     reg, spec = _registry({"tool_policy": {"fetch_url": {"enabled": False}}}, providers=["tavily"])
     allowed, unavailable = reg.effective_tools(spec)
-    assert allowed == ["web_search", "memory_search"]
+    assert allowed == ["web_search", "memory_search", "knowledge_search"]
     assert unavailable["fetch_url"] == "disabled by organization policy"
 
     allowed, unavailable = reg.effective_tools(spec, approved={"memory_search"})

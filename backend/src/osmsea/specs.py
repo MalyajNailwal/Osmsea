@@ -76,6 +76,7 @@ class AgentSpec(_Strict):
     escalation: EscalationSpec
     limits: LimitsSpec = LimitsSpec()
     model: str | None = Field(None, max_length=120)
+    actions: list[Literal["github_pull_request"]] = Field(default_factory=list, max_length=5)  # approval-gated deliveries
     instructions: str = Field(min_length=1, max_length=20_000)  # Markdown body of the spec file
 
     @field_validator("allowed_tools")
@@ -104,12 +105,15 @@ class AgentSpec(_Strict):
         v = self.verification
         if (v.require_cited_evidence or v.min_sources) and not schema.has_sources:
             raise ValueError(f"evidence checks need an output schema with sources, not {self.output_schema}")
-        if v.syntax_check and not schema.has_files:
-            raise ValueError(f"syntax_check needs an output schema with files, not {self.output_schema}")
+        if (v.syntax_check or v.run_tests or self.actions) and not schema.has_files:
+            raise ValueError(f"syntax_check, run_tests and actions need an output schema with files, not {self.output_schema}")
         return self
 
     def frontmatter(self) -> dict[str, Any]:
-        return self.model_dump(exclude={"instructions"}, exclude_none=True)
+        data = self.model_dump(exclude={"instructions"}, exclude_none=True)
+        if not data.get("actions"):
+            data.pop("actions", None)
+        return data
 
 
 # --- Organization settings (policy) --------------------------------------------------------------

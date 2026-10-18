@@ -128,7 +128,7 @@ async def test_approval_requirement_is_computed_from_policy_not_the_model(db):
     plan = Plan.model_validate(PLAN)
     permissions, requires = compute_requirements(plan, await load_registry(db, org["id"]))
     assert requires is False
-    assert [p["tool"] for p in permissions] == ["fetch_url", "memory_search"]  # web_search: no integration
+    assert [p["tool"] for p in permissions] == ["fetch_url", "knowledge_search", "memory_search"]  # web_search: no integration
 
     await db.update("organizations", {"settings": {"require_plan_approval": False,
                                                    "tool_policy": {"fetch_url": {"requires_approval": True}}}},
@@ -173,7 +173,7 @@ async def test_end_to_end_goal_plan_approve_execute_verify(db, client_factory):
 
     wf = await wait_for(lambda: workflow(db, wf_id, "awaiting_approval"))
     assert wf["objective"] == PLAN["objective"] and wf["requires_approval"] is True
-    assert {p["tool"] for p in wf["required_permissions"]} == {"fetch_url", "memory_search"}
+    assert {p["tool"] for p in wf["required_permissions"]} == {"fetch_url", "knowledge_search", "memory_search"}
     assert {t["status"] for t in await db.select("tasks", filters={"workflow_id": wf_id})} == {"awaiting_approval"}
     assert (await db.select("approvals", filters={"workflow_id": wf_id}))[0]["status"] == "pending"
     await asyncio.sleep(0.1)
@@ -192,7 +192,7 @@ async def test_end_to_end_goal_plan_approve_execute_verify(db, client_factory):
 
     calls = client.provider.calls
     research_call = next(c for c in calls if "**Research Agent**" in c["messages"][0]["content"])
-    assert tool_names(research_call["tools"]) == {"fetch_url", "memory_search", "submit_result"}
+    assert tool_names(research_call["tools"]) == {"fetch_url", "memory_search", "knowledge_search", "submit_result"}
     dev_call = next(c for c in calls if "**Software Developer**" in c["messages"][0]["content"])
     assert '<prerequisite task="research"' in dev_call["messages"][1]["content"]
 
@@ -516,7 +516,7 @@ async def test_agent_validation_and_versioning(db, client_factory):
     good = source.replace("max_steps: 12", "max_steps: 8")
     r = await client.post(f"{url}/validate", json={"source_md": good}, headers=auth(ALICE))
     body = r.json()
-    assert body["valid"] and body["effective_tools"]["allowed"] == ["fetch_url", "memory_search"]
+    assert body["valid"] and body["effective_tools"]["allowed"] == ["fetch_url", "memory_search", "knowledge_search"]
     assert "integration" in body["effective_tools"]["unavailable"]["web_search"]
 
     r = await client.put(f"{url}/{agent['id']}", json={"source_md": good, "note": "tighter limits"}, headers=auth(ALICE))

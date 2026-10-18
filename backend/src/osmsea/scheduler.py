@@ -28,6 +28,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from .actions import propose_for_task
 from .automation import fire_due
 from .evals import choose_model, record_case, run_eval, run_replay
 from .executor import BudgetExceeded, ExecutionContext, Outcome, execute, guarded_usage
@@ -377,6 +378,10 @@ class Worker:
                             filters={"id": execution["id"]})
             if updated and spec is not None:
                 await persist_results(db, updated[0], execution["id"], spec, outcome.output)
+                try:  # deliveries are proposals for an admin; they never affect the task itself
+                    await propose_for_task(db, updated[0], spec, outcome.output, outcome.verification)
+                except Exception:
+                    log.exception("proposing actions for task %s failed", task["id"])
                 await record_event(db, task["org_id"], "task_completed",
                                    f"'{task['title']}' completed and verified by {len(outcome.verification['checks'])} check(s)",
                                    workflow_id=task["workflow_id"], task_id=task["id"], execution_id=execution["id"],

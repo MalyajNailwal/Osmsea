@@ -24,7 +24,7 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1"
 class ProviderInfo:
     id: str
     name: str
-    kind: str  # llm | search
+    kind: str  # llm | search | code
     description: str
     secret_label: str
     docs_url: str
@@ -47,6 +47,11 @@ PROVIDERS: dict[str, ProviderInfo] = {
                      "TAVILY_API_KEY", "https://app.tavily.com/home", {}, ("web_search",)),
         ProviderInfo("brave_search", "Brave Search", "search", "Independent web index. Enables the web_search tool.",
                      "BRAVE_SEARCH_API_KEY", "https://api-dashboard.search.brave.com/app/keys", {}, ("web_search",)),
+        ProviderInfo("github", "GitHub", "code",
+                     "Delivers verified, tested code as a draft pull request after an admin approves it. Use a fine-grained "
+                     "token limited to one repository with Contents and Pull requests: read and write.",
+                     "GITHUB_TOKEN", "https://github.com/settings/personal-access-tokens/new",
+                     {"repo": "owner/name", "base_branch": "main"}, ("pull requests",)),
     )
 }
 
@@ -136,6 +141,12 @@ async def test_credential(provider: str, secret: str, cfg: dict[str, Any], http:
                                 headers={"Authorization": f"Bearer {secret}"}, timeout=20)
             if r.status_code == 200:
                 return True, "Search request succeeded"
+        elif provider == "github":
+            from .github import GitHubError, check_repo
+            try:
+                return True, await check_repo(http, secret, cfg.get("repo", ""))
+            except GitHubError as e:
+                return False, str(e)
         elif provider == "brave_search":
             r = await http.get("https://api.search.brave.com/res/v1/web/search", params={"q": "OSMSEA", "count": 1},
                                headers={"X-Subscription-Token": secret, "Accept": "application/json"}, timeout=20)

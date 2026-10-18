@@ -10,6 +10,7 @@ from typing import Any
 import httpx
 
 from .config import Config
+from .github import REPO_RE
 from .evals import check_activation_gate
 from .integrations import PROVIDERS, check_base_url, test_credential
 from .mcp_client import SLUG_RE, McpError, approvable, auth_headers, check_url
@@ -249,6 +250,8 @@ async def upsert_integration(db: Any, config: Config, org_id: str, actor: Actor,
             await check_base_url(clean["base_url"], config)
         except ToolError as e:
             raise SpecError([str(e)]) from e
+    if provider == "github" and not REPO_RE.match(clean.get("repo", "")):
+        raise SpecError(["repo: use the form owner/name"])
     if secret is not None and not 8 <= len(secret.strip()) <= 500:
         raise SpecError(["credential looks invalid (expected 8-500 characters)"])
 

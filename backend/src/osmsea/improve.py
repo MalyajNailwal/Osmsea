@@ -81,6 +81,8 @@ def policy_violations(old: AgentSpec, new: AgentSpec) -> list[str]:
     added = sorted(set(new.allowed_tools) - set(old.allowed_tools))
     if added:
         errors.append(f"proposals cannot add tools: {added}")
+    if added_actions := sorted(set(new.actions) - set(old.actions)):
+        errors.append(f"proposals cannot add actions: {added_actions}")
     errors += [f"verification.{flag} must stay enabled" for flag in ("independent_review", "require_cited_evidence", "syntax_check", "run_tests")
                if getattr(old.verification, flag) and not getattr(new.verification, flag)]
     return errors

@@ -165,6 +165,9 @@ class MemoryStore:
         "eval_cases": [("source_execution_id",)],
         "api_tokens": [("token_hash",)],
         "invitations": [("token_hash",)],
+        "documents": [("org_id", "sha256")],
+        "document_chunks": [("document_id", "ordinal")],
+        "actions": [("task_id", "kind")],
     }
 
     def __init__(self) -> None:
@@ -252,6 +255,14 @@ class MemoryStore:
             if words:
                 rows = [r for r in rows if any(w.lower() in (r["title"] + " " + r["content"]).lower() for w in words)]
             return copy.deepcopy(sorted(rows, key=lambda r: r["created_at"], reverse=True)[: args.get("p_limit", 10)])
+        if fn == "search_documents":
+            words = [w.lower() for w in re.split(r"\s+or\s+|\s+", args.get("p_query") or "", flags=re.I) if w]
+            docs = {d["id"]: d for d in self.tables["documents"]}
+            hits = [c for c in self.tables["document_chunks"] if c["org_id"] == args["p_org"]
+                    and any(w in ((c.get("heading") or "") + " " + c["content"]).lower() for w in words)]
+            return [{"chunk_id": c["id"], "document_id": c["document_id"], "title": docs[c["document_id"]]["title"],
+                     "ordinal": c["ordinal"], "page": c.get("page"), "heading": c.get("heading"), "content": c["content"],
+                     "rank": 1.0} for c in hits[: args.get("p_limit", 5)]]
         if fn == "set_integration_secret":
             self.secrets[args["p_integration"]] = args["p_secret"]
             return None

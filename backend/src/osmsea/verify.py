@@ -40,7 +40,7 @@ SUBMIT_REVIEW_TOOL = {"name": "submit_review", "description": "Submit the review
 
 
 def normalize_url(url: str) -> str:
-    if url.startswith("memory:"):
+    if url.startswith(("memory:", "doc:")):  # internal ids: every passage is its own source
         return url
     parts = urlsplit(url.strip())
     path = parts.path.rstrip("/") or ""

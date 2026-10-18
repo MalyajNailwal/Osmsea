@@ -54,6 +54,11 @@ class FetchUrlParams(_Params):
     url: str = Field(min_length=8, max_length=2000)
 
 
+class KnowledgeSearchParams(_Params):
+    query: str = Field(min_length=1, max_length=300)
+    limit: int = Field(5, ge=1, le=10)
+
+
 class MemorySearchParams(_Params):
     query: str = Field(min_length=1, max_length=300)
     limit: int = Field(5, ge=1, le=10)
@@ -280,6 +285,19 @@ async def _memory_search(ctx: ToolContext, p: MemorySearchParams) -> ToolResult:
     return ToolResult("\n\n".join(lines), evidence)
 
 
+async def _knowledge_search(ctx: ToolContext, p: KnowledgeSearchParams) -> ToolResult:
+    rows = await ctx.db.rpc("search_documents", {"p_org": ctx.org_id, "p_query": or_query(p.query), "p_limit": p.limit})
+    if not rows:
+        return ToolResult("No matching passages in the knowledge base.")
+    lines, evidence = [], []
+    for r in rows:
+        cite = f"doc:{r['document_id']}/{r['ordinal']}"
+        label = r["title"] + (f", page {r['page']}" if r.get("page") else "")
+        lines.append(f"[{cite}] {label}" + (f" · {r['heading']}" if r.get("heading") else "") + f"\n{clip(r['content'], 1500)}")
+        evidence.append({"url": cite, "title": label, "kind": "document"})
+    return ToolResult("\n\n".join(lines), evidence)
+
+
 TOOLS: dict[str, ToolDef] = {
     t.name: t
     for t in (
@@ -302,6 +320,13 @@ TOOLS: dict[str, ToolDef] = {
             "Search this organization's shared memory of verified findings, decisions and evidence.",
             MemorySearchParams,
             _memory_search,
+        ),
+        ToolDef(
+            "knowledge_search",
+            "Search the organization's knowledge base (uploaded documents and saved pages). Returns passages; "
+            "cite them as doc:<document>/<passage>, exactly as shown.",
+            KnowledgeSearchParams,
+            _knowledge_search,
         ),
     )
 }
