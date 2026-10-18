@@ -1,0 +1,14 @@
+__pycache__/
+.claude/settings.local.json
+.code-review-graph/
+.dev-credentials
+.DS_Store
+.env
+.env.*
+.next/
+.playwright-mcp/
+.pytest_cache/
+.ruff_cache/
+.venv/
+*.tsbuildinfo
+node_modules/
