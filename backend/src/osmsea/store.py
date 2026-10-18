@@ -163,6 +163,7 @@ class MemoryStore:
         "organization_members": [("org_id", "user_id")],
         "mcp_servers": [("org_id", "slug")],
         "eval_cases": [("source_execution_id",)],
+        "api_tokens": [("token_hash",)],
     }
 
     def __init__(self) -> None:

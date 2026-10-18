@@ -4,8 +4,11 @@ model call goes through here, where the caller's organization role is checked.
 Run: ``uv run uvicorn osmsea.api:create_app --factory --app-dir src --env-file .env --port 8000``
 """
 
+import asyncio
+import json
 import logging
 from collections.abc import AsyncIterator
+from datetime import datetime
 from contextlib import asynccontextmanager
 from typing import Annotated, Any, Literal
 from uuid import UUID
@@ -14,9 +17,10 @@ import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.routing import Route
 from pydantic import BaseModel, Field
 
-from . import improve, orgs
+from . import automation, improve, mcp_server, orgs, sandbox
 from .auth import Authenticator, User, member_role, role_allows
 from .builder import propose_organization
 from .config import Config
@@ -29,7 +33,7 @@ from .registry import load_registry
 from .scheduler import Worker
 from .schemas import OUTPUT_SCHEMAS
 from .specs import SpecError, load_organization_dir, parse_agent_markdown, parse_settings, render_agent_markdown
-from .store import SupabaseStore, record_audit, record_event
+from .store import SupabaseStore, now_iso, record_audit
 from .tools import TOOLS
 
 log = logging.getLogger("osmsea")
@@ -114,6 +118,26 @@ class McpServerUpdateIn(BaseModel):
     clear_secret: bool = False
 
 
+class TokenIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+
+
+class TriggerIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    kind: Literal["schedule", "webhook"]
+    goal: str = Field(min_length=3, max_length=4000)
+    interval_minutes: int | None = Field(None, ge=15, le=525_600)
+    start_at: datetime | None = None
+    require_approval: bool = True
+
+
+class TriggerUpdateIn(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=80)
+    goal: str | None = Field(None, min_length=3, max_length=4000)
+    enabled: bool | None = None
+    require_approval: bool | None = None
+
+
 class EvalIn(BaseModel):
     source_md: str | None = Field(None, min_length=1, max_length=64 * 1024)  # default: the active version
     models: list[Annotated[str, Field(min_length=1, max_length=120)]] = Field(default_factory=list, max_length=4)
@@ -156,17 +180,30 @@ def create_app(config: Config | None = None, *, db: Any = None, provider_factory
                                   secrets_factory=secrets_factory or default_secrets, http=http,
                                   concurrency=config.worker_concurrency, poll_interval=config.poll_interval,
                                   lease_seconds=config.lease_seconds)
+        app.state.mcp = mcp_server.build(store, app.state.worker, config.web_url)
+        mcp_ready = asyncio.Event()
+
+        async def serve_mcp() -> None:  # own task: the session manager's task group must open and close in one task
+            async with app.state.mcp.session_manager.run():
+                mcp_ready.set()
+                await asyncio.Future()
+
+        mcp_task = asyncio.create_task(serve_mcp(), name="osmsea-mcp")
+        await mcp_ready.wait()
         if config.worker_enabled:
             await app.state.worker.start()
         try:
             yield
         finally:
+            mcp_task.cancel()
+            await asyncio.gather(mcp_task, return_exceptions=True)
             await app.state.worker.stop()
             await http.aclose()
             if db is None:
                 await store.close()
 
     app = FastAPI(title="OSMSEA", version="0.1.0", lifespan=lifespan)
+    app.router.routes.append(Route("/mcp", endpoint=mcp_server.endpoint(app)))  # OSMSEA's own MCP server
     app.add_middleware(CORSMiddleware, allow_origins=config.cors_origins, allow_methods=["*"],
                        allow_headers=["Authorization", "Content-Type"])
 
@@ -300,7 +337,7 @@ def create_app(config: Config | None = None, *, db: Any = None, provider_factory
             llm = {"configured": False, "message": str(e)}
         return {"llm": llm, "worker": {"enabled": config.worker_enabled, "last_tick": s.worker.last_tick,
                                        "running_tasks": len(s.worker.running)},
-                "invalid_agents": reg.invalid, "providers": sorted(reg.providers)}
+                "invalid_agents": reg.invalid, "providers": sorted(reg.providers), "sandbox": await sandbox.status()}
 
     # --- departments & agents ----------------------------------------------------------------------
 
@@ -375,20 +412,67 @@ def create_app(config: Config | None = None, *, db: Any = None, provider_factory
                               actor: Admin) -> dict[str, Any]:
         return await improve.decide_proposal(state(request).db, str(org_id), str(proposal_id), actor, decision == "accept")
 
+    # --- automation: API tokens, triggers, webhooks -------------------------------------------------
+
+    @app.post("/orgs/{org_id}/api-tokens", status_code=201)
+    async def create_token(org_id: UUID, body: TokenIn, request: Request, actor: Admin) -> dict[str, Any]:
+        row, token = await automation.create_token(state(request).db, str(org_id), actor, body.name)
+        return {**{k: v for k, v in row.items() if k != "token_hash"}, "token": token}
+
+    @app.delete("/orgs/{org_id}/api-tokens/{token_id}", status_code=204)
+    async def revoke_token(org_id: UUID, token_id: UUID, request: Request, actor: Admin) -> None:
+        await automation.revoke_token(state(request).db, str(org_id), str(token_id), actor)
+
+    @app.post("/orgs/{org_id}/triggers", status_code=201)
+    async def create_trigger(org_id: UUID, body: TriggerIn, request: Request, actor: Admin) -> dict[str, Any]:
+        row, secret = await automation.create_trigger(
+            state(request).db, str(org_id), actor, name=body.name, kind=body.kind, goal=body.goal,
+            interval_minutes=body.interval_minutes, start_at=body.start_at, require_approval=body.require_approval)
+        return {**{k: v for k, v in row.items() if k != "secret_hash"}, "secret": secret}
+
+    @app.patch("/orgs/{org_id}/triggers/{trigger_id}")
+    async def update_trigger(org_id: UUID, trigger_id: UUID, body: TriggerUpdateIn, request: Request,
+                             actor: Admin) -> dict[str, Any]:
+        row = await automation.update_trigger(state(request).db, str(org_id), str(trigger_id), actor, body.model_dump())
+        return {k: v for k, v in row.items() if k != "secret_hash"}
+
+    @app.delete("/orgs/{org_id}/triggers/{trigger_id}", status_code=204)
+    async def delete_trigger(org_id: UUID, trigger_id: UUID, request: Request, actor: Admin) -> None:
+        await automation.delete_trigger(state(request).db, str(org_id), str(trigger_id), actor)
+
+    @app.post("/orgs/{org_id}/triggers/{trigger_id}/run")
+    async def run_trigger(org_id: UUID, trigger_id: UUID, request: Request, actor: Member) -> dict[str, Any]:
+        s = state(request)
+        rows = await s.db.select("triggers", filters={"id": str(trigger_id), "org_id": str(org_id)})
+        if not rows:
+            raise NotFound("trigger not found")
+        return await automation.fire(s.db, s.worker, rows[0], actor_label=f"{actor.email} (run now: {rows[0]['name']})",
+                                     context={"source": "manual", "by": actor.email} if rows[0]["kind"] == "webhook" else None)
+
+    @app.post("/hooks/{trigger_id}", status_code=202)
+    async def webhook(trigger_id: UUID, request: Request, token: str | None = None,
+                      authorization: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+        """Public endpoint for webhook triggers. Secret: `Authorization: Bearer whk_...` or `?token=whk_...`."""
+        s = state(request)
+        secret = authorization[7:].strip() if authorization and authorization.lower().startswith("bearer ") else token
+        trigger = await automation.verify_webhook(s.db, str(trigger_id), secret)
+        raw = await request.body()
+        if len(raw) > 64 * 1024:
+            raise HTTPException(413, "payload larger than 64 KB")
+        try:
+            payload: Any = json.loads(raw) if raw else None
+        except ValueError:
+            payload = raw.decode(errors="replace")
+        wf = await automation.fire(s.db, s.worker, trigger, context={
+            "source": "webhook", "trigger": trigger["name"], "received_at": now_iso(),
+            "content_type": request.headers.get("content-type"), "payload": payload})
+        return {"workflow_id": wf["id"], "status": wf["status"]}
+
     # --- workflows ---------------------------------------------------------------------------------
 
     @app.post("/orgs/{org_id}/workflows", status_code=201)
     async def create_workflow(org_id: UUID, body: GoalIn, request: Request, actor: Member) -> dict[str, Any]:
-        s = state(request)
-        org = (await s.db.select("organizations", filters={"id": str(org_id)}))[0]
-        settings = parse_settings(org.get("settings"))
-        wf = (await s.db.insert("workflows", {"org_id": str(org_id), "goal": body.goal.strip(), "status": "planning",
-                                              "created_by": actor.id, "token_budget": settings.workflow_token_budget}))[0]
-        await record_event(s.db, str(org_id), "workflow_created", f"Goal submitted by {actor.email}", workflow_id=wf["id"])
-        await record_audit(s.db, str(org_id), "workflow.create", "workflow", actor_id=actor.id, actor_label=actor.email,
-                           resource_id=wf["id"], resource_name=body.goal[:120])
-        s.worker.submit_planning(wf["id"])
-        return wf
+        return await state(request).worker.start_workflow(str(org_id), body.goal, actor_id=actor.id, actor_label=actor.email)
 
     @app.post("/orgs/{org_id}/workflows/{workflow_id}/approve")
     async def approve(org_id: UUID, workflow_id: UUID, body: DecisionIn, request: Request, actor: Admin) -> dict[str, str]:

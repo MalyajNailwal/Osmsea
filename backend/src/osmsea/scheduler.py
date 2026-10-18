@@ -28,6 +28,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from .automation import fire_due
 from .evals import choose_model, record_case, run_eval
 from .executor import BudgetExceeded, ExecutionContext, Outcome, execute, guarded_usage
 from .integrations import ProviderNotConfigured
@@ -45,6 +46,7 @@ log = logging.getLogger(__name__)
 ACTIVE = ("running", "verifying")
 TERMINAL = ("completed", "failed", "blocked", "cancelled")
 RECOVERY_INTERVAL_SECONDS = 30
+TRIGGER_INTERVAL_SECONDS = 15
 
 SecretsFactory = Callable[[str], Awaitable[dict[str, str]]]
 
@@ -75,6 +77,7 @@ class Worker:
         self._loop_task: asyncio.Task | None = None
         self._shutting_down = False
         self._last_recovery = 0.0
+        self._last_triggers = 0.0
 
     # --- lifecycle -------------------------------------------------------------------------------
 
@@ -101,6 +104,9 @@ class Worker:
                 await self.tick()
                 if loop.time() - self._last_recovery > RECOVERY_INTERVAL_SECONDS:
                     await self.recover()
+                if loop.time() - self._last_triggers > TRIGGER_INTERVAL_SECONDS:
+                    self._last_triggers = loop.time()
+                    await fire_due(self.db, self)
             except Exception:
                 log.exception("scheduler tick failed")
             try:
@@ -125,6 +131,22 @@ class Worker:
                 self.notify()
 
         self.planning[workflow_id] = asyncio.create_task(job(), name=f"plan-{workflow_id}")
+
+    async def start_workflow(self, org_id: str, goal: str, *, actor_id: str | None, actor_label: str,
+                             trigger_id: str | None = None, force_approval: bool = False, context: Any = None) -> dict[str, Any]:
+        """Create a workflow from a goal and start planning it. Used by the API, the MCP server and triggers."""
+        org = (await self.db.select("organizations", filters={"id": org_id}))[0]
+        settings = parse_settings(org.get("settings"))
+        wf = (await self.db.insert("workflows", {
+            "org_id": org_id, "goal": goal.strip(), "status": "planning", "created_by": actor_id,
+            "token_budget": settings.workflow_token_budget, "trigger_id": trigger_id, "force_approval": force_approval,
+            "context": context,
+        }))[0]
+        await record_event(self.db, org_id, "workflow_created", f"Goal submitted by {actor_label}", workflow_id=wf["id"])
+        await record_audit(self.db, org_id, "workflow.create", "workflow", actor_id=actor_id, actor_label=actor_label,
+                           resource_id=wf["id"], resource_name=goal[:120], details={"trigger_id": trigger_id} if trigger_id else None)
+        self.submit_planning(wf["id"])
+        return wf
 
     def submit_eval(self, run_id: str) -> None:
         async def job() -> None:

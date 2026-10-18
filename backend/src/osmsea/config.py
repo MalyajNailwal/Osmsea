@@ -30,6 +30,7 @@ class Config(BaseModel):
     allow_private_llm_urls: bool = False  # permit e.g. a local Ollama base URL (development only)
     allow_private_mcp_urls: bool = False  # permit http/localhost MCP servers (development and tests only)
     template_dir: Path = REPO_ROOT / "organization"
+    web_url: str = "http://localhost:3000"  # links to the UI in MCP results
 
     @classmethod
     def from_env(cls) -> Config:
@@ -51,4 +52,5 @@ class Config(BaseModel):
             lease_seconds=int(env.get("OSMSEA_LEASE_SECONDS", "60")),
             allow_private_llm_urls=_bool("OSMSEA_ALLOW_PRIVATE_LLM_URLS", False),
             allow_private_mcp_urls=_bool("OSMSEA_ALLOW_PRIVATE_MCP_URLS", False),
+            web_url=env.get("OSMSEA_WEB_URL", "http://localhost:3000").rstrip("/"),
         )
