@@ -146,12 +146,22 @@ Docker (Docker Desktop, OrbStack or Colima) for agents whose tests are executed.
 - **Members.** Admins create invite links that are single-use, expire after 7 days and work only for the
   invited, confirmed email. Admins can also change roles and remove members, and anyone can leave. The
   owner's membership is protected.
+- **Knowledge base.** Upload PDFs, Markdown, text, HTML, CSV or code, or save a web page. OSMSEA splits
+  each document into passages and indexes them for full-text search (PDF passages keep their page
+  numbers). Agents find passages with `knowledge_search` and cite them as `doc:<document>/<passage>`.
+  The citation check accepts only passages the agent actually retrieved in that run.
+- **Deliveries with approval (GitHub pull requests).** When a developer task passes verification
+  (including its sandboxed tests), OSMSEA proposes a draft pull request built from the verified files.
+  It is built by OSMSEA itself, not from model-chosen arguments. Nothing touches GitHub until an admin
+  approves, and the PR body lists the verification results. Changes under `.github/` (CI workflows) are
+  never delivered. Uses a fine-grained token limited to one repository.
 - Live UI over real data through Supabase Realtime. Audit log of configuration changes, approvals and
   security denials.
 
 ## Not implemented yet
 
-Mid-task approval of individual tool calls · invitation emails (invites are copy-links) · resuming a replay
+Approval of arbitrary tool calls mid-task (side effects are deliveries approved after verification) ·
+deliveries other than GitHub pull requests · meaning-based (embedding) search over documents · invitation emails (invites are copy-links) · resuming a replay
 mid-run from step N (replays restart the attempt with recorded tools) · OAuth for OSMSEA's MCP server
 (static tokens today) · cron expressions for schedules (fixed intervals today) · sandboxes for languages
 other than Python · a separate worker process (the scheduler runs in the API process).
@@ -160,7 +170,7 @@ other than Python · a separate worker process (the scheduler runs in the API pr
 
 ```bash
 cd backend
-uv run pytest -q                                          # 81 tests: scripted model, in-memory store, in-process MCP servers, real sandbox if Docker is up
+uv run pytest -q                                          # 84 tests: scripted model, in-memory store, in-process MCP and fake GitHub servers, real sandbox if Docker is up
 OSMSEA_LIVE=1 uv run pytest tests/test_live_supabase.py   # real Supabase: persistence, RLS isolation, Vault
 OSMSEA_LIVE_MCP=1 uv run pytest tests/test_mcp.py        # real public MCP server (DeepWiki)
 cd ../web && pnpm exec tsc --noEmit && pnpm lint && pnpm build

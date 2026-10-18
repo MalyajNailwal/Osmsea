@@ -41,6 +41,8 @@ Client roles have no INSERT/UPDATE/DELETE privileges at all.
 | `mcp_server.py` | OSMSEA's own MCP server at `/mcp`: token auth, `list_agents`, `submit_goal`, `get_workflow`, `search_memory` |
 | `automation.py` | Organization API tokens; schedule and webhook triggers; firing with pile-up protection |
 | `members.py` | Invitation links (single-use, expiring, bound to a confirmed email), role changes, leaving |
+| `knowledge.py` | Document upload and URL import, text extraction (pypdf for PDFs), page-aware passage chunking, search |
+| `actions.py` / `github.py` | Approval-gated deliveries built from verified output; draft pull requests through the GitHub REST API |
 | `orgs.py` | Organization, department, agent-version, settings, integration and memory configuration, with audit |
 | `auth.py` / `api.py` | Session validation, role checks, HTTP routes |
 | `store.py` | `SupabaseStore` (PostgREST) and `MemoryStore` (tests) behind one small table API |
@@ -61,6 +63,11 @@ tool results (`tool_recordings`) and its model-routing decision (`routing`).
 Automation: `api_tokens` (SHA-256 of the token, prefix, creator, last use, revocation) and `triggers`
 (schedule interval and next run, or a hashed webhook secret; approval policy; last run). Workflows record
 the `trigger_id`, a `force_approval` flag and the untrusted event `context`.
+
+Knowledge and deliveries: `documents` (title, source, hash for deduplication, page and passage counts),
+`document_chunks` (page, heading, passage text, generated `tsvector`, GIN index, searched by the
+`search_documents` RPC) and `actions` (one per task and kind: a preview payload for the approver, status,
+result such as the pull request URL, and the admin decision).
 
 Collaboration and debugging: `workflows.forecast` (computed at planning by `evals.forecast_plan`),
 `replays` (an edited spec and/or model re-run against an execution's recorded tool results, with its
@@ -137,6 +144,12 @@ corresponding total `null`: the UI shows "unknown", never an invented number.
   organization and acting as its creator with member rights. It stops working when revoked or when the
   creator leaves the org. Clients can submit and read but cannot approve, edit or read credentials.
   At most 10 active workflows per org can be started this way.
+- Deliveries: an action is created by trusted code only after verification passes. At approval it
+  re-reads the task's verified output rather than any model-supplied arguments, runs once (pending→running
+  compare-and-swap), refuses `.github/` paths, and opens a *draft* pull request on a new branch. The token
+  stays in Vault and is never shown to agents. Every outcome is audited.
+- Documents: uploads are capped at 10 MB and URL imports use the agents' SSRF-safe fetcher. Only the
+  extracted text is stored. Passages reach agents fenced as untrusted tool output, like web pages.
 - Invitations: a 256-bit token stored as SHA-256 that expires after 7 days and can be accepted once,
   only by a signed-in user whose confirmed email matches the invite. The owner cannot be demoted or
   removed, and admins cannot change their own role. Removing a member also disables their API tokens.
@@ -186,3 +199,6 @@ corresponding total `null`: the UI shows "unknown", never an invented number.
 | Forecasts treat attempts as independent and use small samples as-is | Bayesian smoothing with a prior per agent, and confidence intervals |
 | Replays restart an attempt from the beginning (with recorded tools) rather than resuming at step N | Persist full model transcripts per step, if mid-run resume is needed |
 | Invitation links rely on Supabase email confirmation being on to prove email ownership | Keep "Confirm email" enabled in Supabase Auth (required for production) |
+| Document search is lexical (Postgres full-text), not semantic | Add pgvector embeddings next to the `tsvector`, and hybrid ranking |
+| Scanned PDFs have no text layer and are rejected | OCR (e.g. Tesseract) before chunking |
+| GitHub delivery targets github.com and one configured repository per org | Per-agent or per-goal repositories; GitHub Enterprise base URL; GitHub App auth instead of a token |
