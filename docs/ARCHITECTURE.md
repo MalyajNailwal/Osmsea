@@ -32,7 +32,9 @@ Client roles have no INSERT/UPDATE/DELETE privileges at all.
 | `planner.py` | Plan generation (forced tool call), validation (DAG, agents, limits), requirements, approve/reject |
 | `executor.py` | One task attempt: prompt assembly, bounded tool loop, permission enforcement, output validation |
 | `verify.py` | Deterministic checks and independent review |
-| `scheduler.py` | Worker loop: promote/claim/run/finish, retries, cancellation, recovery, artifacts and memory |
+| `scheduler.py` | Worker loop: promote/claim/run/finish, retries, cancellation, recovery, artifacts and memory; background evaluation jobs |
+| `evals.py` | Evaluation cases from verified attempts, replayed evaluation runs, activation gate, per-model stats and routing |
+| `improve.py` | Failure analysis, policy-checked spec revision proposals, accept/reject |
 | `orgs.py` | Organization, department, agent-version, settings, integration and memory configuration, with audit |
 | `auth.py` / `api.py` | Session validation, role checks, HTTP routes |
 | `store.py` | `SupabaseStore` (PostgREST) and `MemoryStore` (tests) behind one small table API |
@@ -47,7 +49,13 @@ catalog, approved tools, approval policy) and `mcp_server_secrets` (Vault refere
 Execution state: `workflows` (goal, plan, permissions, budget, usage, cost), `tasks` (dependencies as
 task ids, pinned `agent_version_id`, lease, attempt, output, verification), `agent_executions` (one per
 attempt, unique on `(task_id, attempt)`, with step log, tokens, cost), `execution_events`, `approvals`,
-`artifacts`, `memory_items` (full-text indexed), `audit_events`.
+`artifacts`, `memory_items` (full-text indexed), `audit_events`. Each execution also stores its full
+tool results (`tool_recordings`) and its model-routing decision (`routing`).
+
+Self-improvement: `eval_cases` (one per verified attempt: task, prerequisite outputs, tool recordings,
+baseline result), `eval_runs` (a spec, identified by SHA-256, optionally with a model, replayed against
+cases), `eval_results` (one per case and run) and `agent_proposals` (a proposed spec, its rationale and
+failure report, its evaluation run and the admin decision). Client roles can only read these tables.
 
 ## A workflow, end to end
 
@@ -66,6 +74,35 @@ attempt, unique on `(task_id, attempt)`, with step log, tokens, cost), `executio
 7. `verify.py` runs the checks. Pass: the task completes, and artifacts and memory are written by trusted
    code. Fail: the task is retried with the failure as feedback, or marked failed with dependents blocked.
 8. Every state change reaches the UI through Realtime.
+
+## Self-improvement loop
+
+1. **Record.** When an attempt reaches verification (pass or fail), the scheduler freezes it as an
+   `eval_case`, before the task is marked finished.
+2. **Evaluate.** `POST /orgs/{org}/agents/{id}/evals` queues one run per spec or model, and the worker
+   replays the cases. The executor runs with `persist=False`, so it writes no task, execution, event or
+   audit rows. Its `replay` map answers recorded calls by `(tool, canonical JSON arguments)`.
+   Unrecorded built-in read-only tools run live. Unrecorded MCP calls return an error, because MCP tools
+   may have side effects. Verification, including the independent reviewer, runs exactly as in
+   production, and citation checks use the replayed evidence.
+3. **Gate.** With `require_eval_for_activation`, `orgs.update_agent` (used by manual edits, restores and
+   accepted proposals) requires a completed run of the exact spec hash. Its pass rate must be at least
+   `max(eval_min_pass_rate, recorded baseline)`.
+4. **Propose.** `improve.failure_report` aggregates the last 20 executions: failed checks, unmet
+   criteria and infrastructure errors (counted separately). The revision model must answer through
+   `submit_spec_revision`, and its output is treated as an untrusted draft. `policy_violations` rejects
+   proposals that change id, department or output schema, add tools, or disable
+   `independent_review`, `require_cited_evidence` or `syntax_check`.
+5. **Decide.** Accepting a proposal creates a normal new version, and the activation gate applies.
+   A proposal whose base version is no longer active is marked `superseded`.
+6. **Route.** `evals.choose_model` decides the model for each task:
+   - A model pinned in the spec always wins.
+   - Otherwise, with `model_routing: auto`, it takes the cheapest candidate in `routing_models` that has
+     at least `routing_min_runs` verified runs and at least `routing_target_pass_rate`.
+   - Otherwise it uses the org default model.
+
+   The decision and its reason are stored on the execution. Infrastructure failures are ignored when
+   computing model quality.
 
 ## Security boundaries
 
@@ -98,3 +135,6 @@ attempt, unique on `(task_id, attempt)`, with step log, tokens, cost), `executio
 | Admin-supplied LLM base URLs are checked at call time, not pinned | Pin DNS the way `fetch_url` does |
 | MCP: one session per tool call; URLs checked at registration/refresh, not pinned | Pool sessions per execution; pin DNS through a custom `httpx2` transport |
 | MCP: remote Streamable HTTP servers with static credentials only | Add OAuth flows and sandboxed stdio servers |
+| Evaluation cases run sequentially, at most `eval_max_cases` per run | Bound parallelism with a semaphore |
+| Model stats aggregate the latest 2,000 executions and eval results in Python | A SQL view or materialized rollup |
+| Unrecorded built-in tools run live during evaluations, so their results can drift | Fail closed on unrecorded calls, if reproducibility matters more than coverage |

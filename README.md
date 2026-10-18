@@ -106,6 +106,22 @@ Prerequisites: Python 3.12 with [uv](https://docs.astral.sh/uv/), Node 22+ with 
 - Verification: schema validation; cited sources must have been retrieved during the same execution;
   minimum sources; Python/JSON/TOML/YAML parse checks; an independent reviewer model judges the
   acceptance criteria. Artifacts and verified findings are stored with provenance.
+- **Self-improving agents** (agent → Improve tab):
+  - **Evaluation cases ("CI for agents").** Every attempt that reaches verification is frozen as a
+    regression case, together with the full results of its tool calls.
+  - **Replayed evaluations.** An evaluation replays those cases against a spec or model. Recorded tool
+    calls are answered from the recording, MCP tools never run live, and real tasks are never touched.
+    Results are compared with the recorded baseline.
+  - **Activation gate (optional).** A new agent version goes live only after an evaluation of that exact
+    spec passes at least as many cases as before.
+  - **Improvement proposals.** A model drafts a revised spec from the agent's failure patterns: failed
+    checks and the criteria the reviewer marked unmet. The backend rejects any proposal that adds tools,
+    disables a verification check or changes the agent's identity. Each proposal is evaluated, then an
+    admin accepts or rejects it.
+  - **Cost-aware model routing (optional).** For each agent, OSMSEA tracks pass rate and cost per
+    verified task for each model, from real runs and evaluations. Auto-routing picks the cheapest model
+    that meets the org's quality bar. A model pinned in a spec always wins, and every execution records
+    why its model was chosen.
 - Live UI over real data through Supabase Realtime. Audit log of configuration changes, approvals and
   security denials.
 
@@ -119,7 +135,7 @@ worker process (the scheduler runs in the API process).
 
 ```bash
 cd backend
-uv run pytest -q                                          # 67 tests: scripted model, in-memory store, in-process MCP server
+uv run pytest -q                                          # 70 tests: scripted model, in-memory store, in-process MCP server
 OSMSEA_LIVE=1 uv run pytest tests/test_live_supabase.py   # real Supabase: persistence, RLS isolation, Vault
 OSMSEA_LIVE_MCP=1 uv run pytest tests/test_mcp.py        # real public MCP server (DeepWiki)
 cd ../web && pnpm exec tsc --noEmit && pnpm lint && pnpm build
