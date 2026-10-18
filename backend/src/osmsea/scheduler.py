@@ -28,6 +28,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from .evals import choose_model, record_case, run_eval
 from .executor import BudgetExceeded, ExecutionContext, Outcome, execute, guarded_usage
 from .integrations import ProviderNotConfigured
 from .llm import LLMError
@@ -67,6 +68,7 @@ class Worker:
         self.running: dict[str, asyncio.Task] = {}  # task_id -> execution job
         self.running_workflow: dict[str, str] = {}  # task_id -> workflow_id
         self.planning: dict[str, asyncio.Task] = {}  # workflow_id -> planning job
+        self.evals: dict[str, asyncio.Task] = {}  # eval_run_id -> evaluation job
         self.wake = asyncio.Event()
         self.last_tick: str | None = None
         self._loop_task: asyncio.Task | None = None
@@ -83,7 +85,7 @@ class Worker:
         self._shutting_down = True
         if self._loop_task:
             self._loop_task.cancel()
-        jobs = [*self.running.values(), *self.planning.values()]
+        jobs = [*self.running.values(), *self.planning.values(), *self.evals.values()]
         for job in jobs:
             job.cancel()
         await asyncio.gather(*jobs, return_exceptions=True)
@@ -122,6 +124,15 @@ class Worker:
                 self.notify()
 
         self.planning[workflow_id] = asyncio.create_task(job(), name=f"plan-{workflow_id}")
+
+    def submit_eval(self, run_id: str) -> None:
+        async def job() -> None:
+            try:
+                await run_eval(self.db, run_id, self.provider_factory, self.secrets_factory, self.http)
+            finally:
+                self.evals.pop(run_id, None)
+
+        self.evals[run_id] = asyncio.create_task(job(), name=f"eval-{run_id}")
 
     # --- scheduling ------------------------------------------------------------------------------
 
@@ -225,7 +236,7 @@ class Worker:
                            agent_id=task.get("agent_id"))
         totals: dict[str, Any] = {"input_tokens": 0, "output_tokens": 0, "cost_usd": None, "model": None}
         heartbeat = asyncio.create_task(self._heartbeat(task["id"], asyncio.current_task()))
-        exec_status, spec, outcome = "failed", None, None
+        exec_status, spec, outcome, prerequisites = "failed", None, None, []
         try:
             versions = await db.select("agent_versions", filters={"id": task.get("agent_version_id") or ""}) \
                 if task.get("agent_version_id") else []
@@ -233,18 +244,21 @@ class Worker:
                 raise SpecError(["task has no pinned agent version"])
             spec = spec_from_row(versions[0]["spec"])
             registry = await load_registry(db, task["org_id"])
-            provider = await self.provider_factory(task["org_id"], model=spec.model,
+            model, reason = await choose_model(db, registry, spec, task.get("agent_id"))
+            provider = await self.provider_factory(task["org_id"], model=model,
                                                    org_default_model=registry.settings.default_model)
-            await db.update("agent_executions", {"provider": provider.name, "model": provider.model},
+            await db.update("agent_executions", {"provider": provider.name, "model": provider.model,
+                                                 "routing": {"model": provider.model, "reason": reason}},
                             filters={"id": execution["id"]})
             prerequisites = await db.select("tasks", filters={"id": ("in", task["depends_on"])}) if task["depends_on"] else []
+            prerequisites = [p for p in prerequisites if p["status"] == "completed"]
             ctx = ExecutionContext(
                 db=db, provider=provider, registry=registry, workflow=wf, task=task, execution_id=execution["id"],
                 agent_version=versions[0], spec=spec,
                 approved_tools={p["tool"] for p in wf.get("required_permissions") or []},
                 tool_context=ToolContext(org_id=task["org_id"], db=db, http=self.http,
                                          secrets=await self.secrets_factory(task["org_id"])),
-                prerequisites=[p for p in prerequisites if p["status"] == "completed"],
+                prerequisites=prerequisites,
             )
             timeout = min(spec.limits.timeout_seconds, org_timeout)
             try:
@@ -266,6 +280,12 @@ class Worker:
             outcome = Outcome(False, error=f"internal error: {type(e).__name__}: {e}")
         finally:
             heartbeat.cancel()
+        try:  # evaluation cases are a by-product; never let them affect the task
+            await record_case(db, task=task, execution_id=execution["id"], outcome=outcome, totals=totals,
+                              agent_version_id=task.get("agent_version_id"), objective=wf.get("objective"),
+                              prerequisites=prerequisites)
+        except Exception:
+            log.exception("recording an evaluation case for task %s failed", task["id"])
         for attempt in range(3):  # bookkeeping must survive a network blip, or a finished attempt is lost
             try:
                 await self._finish(task, execution, outcome, totals, spec, exec_status)
@@ -309,7 +329,8 @@ class Worker:
                       totals: dict[str, Any], spec: AgentSpec | None, exec_status: str) -> None:
         db = self.db
         output = outcome.output.model_dump() if outcome.output else None
-        common = {"finished_at": now_iso(), "output": output, "verification": outcome.verification}
+        common = {"finished_at": now_iso(), "output": output, "verification": outcome.verification,
+                  "tool_recordings": outcome.recordings}
         if outcome.succeeded:
             updated = await db.update("tasks", {
                 "status": "completed", "output": output, "verification": outcome.verification, "error": None,
@@ -412,6 +433,11 @@ class Worker:
             if await self.db.update("workflows", {"status": "plan_failed", "error": msg, "plan_errors": [msg],
                                                   "completed_at": now_iso()}, filters={"id": w["id"], "status": "planning"}):
                 await record_event(self.db, w["org_id"], "planning_failed", msg, level="error", workflow_id=w["id"])
+        for r in await self.db.select("eval_runs", filters={"status": ("in", ["queued", "running"]), "created_at": ("lt", cutoff)}):
+            if r["id"] not in self.evals:
+                await self.db.update("eval_runs", {"status": "failed", "completed_at": now_iso(),
+                                                   "error": "evaluation was interrupted (server restart); run it again"},
+                                     filters={"id": r["id"], "status": r["status"]})
         if recovered:
             self.notify()
         return recovered

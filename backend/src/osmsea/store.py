@@ -162,6 +162,7 @@ class MemoryStore:
         "agent_versions": [("agent_id", "version")],
         "organization_members": [("org_id", "user_id")],
         "mcp_servers": [("org_id", "slug")],
+        "eval_cases": [("source_execution_id",)],
     }
 
     def __init__(self) -> None:

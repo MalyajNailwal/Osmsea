@@ -10,6 +10,7 @@ from typing import Any
 import httpx
 
 from .config import Config
+from .evals import check_activation_gate
 from .integrations import PROVIDERS, check_base_url, test_credential
 from .mcp_client import SLUG_RE, McpError, approvable, auth_headers, check_url
 from .mcp_client import list_tools as mcp_list_tools
@@ -197,6 +198,8 @@ async def update_agent(db: Any, org_id: str, agent_id: str, actor: Actor, source
     if spec.id != agent["slug"]:
         raise SpecError([f"id: agent ids are stable; expected '{agent['slug']}', got '{spec.id}'"])
     dept = await _department_for(db, org_id, spec)
+    org = await _one(db, "organizations", id=org_id)
+    gate = await check_activation_gate(db, parse_settings(org.get("settings")), agent_id, source_md)
     latest = await db.select("agent_versions", filters={"agent_id": agent_id}, order="version.desc", limit=1)
     version_no = (latest[0]["version"] if latest else 0) + 1
     try:
@@ -211,7 +214,8 @@ async def update_agent(db: Any, org_id: str, agent_id: str, actor: Actor, source
     row = (await db.update("agents", {"active_version_id": version["id"], "name": spec.name, "role": spec.role,
                                       "department_id": dept["id"]}, filters={"id": agent_id}))[0]
     await record_audit(db, org_id, "agent.update", "agent", actor_id=actor.id, actor_label=actor.email,
-                       resource_id=agent_id, resource_name=spec.name, details={"version": version_no, "note": note})
+                       resource_id=agent_id, resource_name=spec.name,
+                       details={"version": version_no, "note": note, "eval_gate": gate})
     return {**row, "version": version_no}
 
 

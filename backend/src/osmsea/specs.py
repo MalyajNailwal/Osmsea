@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError, field_validator, model_validator
@@ -128,6 +128,15 @@ class OrgSettings(_Strict):
     max_tasks_per_plan: int = Field(8, ge=1, le=20)
     default_model: str | None = Field(None, max_length=120)
     tool_policy: dict[str, ToolPolicy] = Field(default_factory=dict)
+    # Self-improvement: evaluation gate for activating new agent versions.
+    require_eval_for_activation: bool = False
+    eval_min_pass_rate: float = Field(0.0, ge=0.0, le=1.0)
+    eval_max_cases: int = Field(10, ge=1, le=50)
+    # Cost-aware routing: pick the cheapest candidate model that meets the quality bar.
+    model_routing: Literal["fixed", "auto"] = "fixed"
+    routing_models: list[Annotated[str, StringConstraints(min_length=1, max_length=120)]] = Field(default_factory=list, max_length=8)
+    routing_min_runs: int = Field(3, ge=1, le=100)
+    routing_target_pass_rate: float = Field(0.8, ge=0.0, le=1.0)
 
     @field_validator("tool_policy")
     @classmethod

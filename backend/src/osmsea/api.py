@@ -16,10 +16,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from . import orgs
+from . import improve, orgs
 from .auth import Authenticator, User, member_role, role_allows
 from .builder import propose_organization
 from .config import Config
+from .evals import choose_model, create_eval_run, model_stats
 from .integrations import ProviderNotConfigured, catalog, llm_provider_for_org, tool_secrets
 from .llm import LLMError
 from .orgs import Actor, NotFound
@@ -111,6 +112,11 @@ class McpServerUpdateIn(BaseModel):
     enabled: bool | None = None
     secret: str | None = Field(None, max_length=2000)
     clear_secret: bool = False
+
+
+class EvalIn(BaseModel):
+    source_md: str | None = Field(None, min_length=1, max_length=64 * 1024)  # default: the active version
+    models: list[Annotated[str, Field(min_length=1, max_length=120)]] = Field(default_factory=list, max_length=4)
 
 
 class MemoryIn(BaseModel):
@@ -331,6 +337,43 @@ def create_app(config: Config | None = None, *, db: Any = None, provider_factory
     @app.post("/orgs/{org_id}/agents/{agent_id}/status")
     async def agent_status(org_id: UUID, agent_id: UUID, body: AgentStatusIn, request: Request, actor: Admin) -> dict[str, Any]:
         return await orgs.set_agent_status(state(request).db, str(org_id), str(agent_id), actor, body.status)
+
+    # --- self-improvement: insights, evaluations, proposals ----------------------------------------
+
+    @app.get("/orgs/{org_id}/agents/{agent_id}/insights")
+    async def agent_insights(org_id: UUID, agent_id: UUID, request: Request, _: Viewer) -> dict[str, Any]:
+        db, oid, aid = state(request).db, str(org_id), str(agent_id)
+        reg = await load_registry(db, oid)
+        agent = next((a for a in reg.agents.values() if a.agent_id == aid), None)
+        if agent is None:
+            raise NotFound("agent not found")
+        model, reason = await choose_model(db, reg, agent.spec, aid)
+        return {"failures": await improve.failure_report(db, oid, aid), "models": await model_stats(db, oid, aid),
+                "routing": {"model": model or reg.settings.default_model, "reason": reason},
+                "eval_cases": len(await db.select("eval_cases", filters={"agent_id": aid, "status": "active"}, columns="id"))}
+
+    @app.post("/orgs/{org_id}/agents/{agent_id}/evals", status_code=201)
+    async def start_evals(org_id: UUID, agent_id: UUID, body: EvalIn, request: Request, actor: Admin) -> list[dict[str, Any]]:
+        s = state(request)
+        runs = [await create_eval_run(s.db, str(org_id), str(agent_id), actor.id, actor.email, source_md=body.source_md,
+                                      model=m, kind="model_compare" if body.models else "manual")
+                for m in (body.models or [None])]
+        for r in runs:
+            s.worker.submit_eval(r["id"])
+        return runs
+
+    @app.post("/orgs/{org_id}/agents/{agent_id}/proposals", status_code=201)
+    async def propose_revision(org_id: UUID, agent_id: UUID, request: Request, actor: Admin) -> dict[str, Any]:
+        s = state(request)
+        row = await improve.propose_revision(s.db, s.provider_factory, str(org_id), str(agent_id), actor)
+        if row.get("eval_run_id"):
+            s.worker.submit_eval(row["eval_run_id"])
+        return row
+
+    @app.post("/orgs/{org_id}/proposals/{proposal_id}/{decision}")
+    async def decide_proposal(org_id: UUID, proposal_id: UUID, decision: Literal["accept", "reject"], request: Request,
+                              actor: Admin) -> dict[str, Any]:
+        return await improve.decide_proposal(state(request).db, str(org_id), str(proposal_id), actor, decision == "accept")
 
     # --- workflows ---------------------------------------------------------------------------------
 
