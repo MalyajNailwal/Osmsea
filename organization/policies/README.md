@@ -17,14 +17,17 @@ rules; **enforcement is always in backend code or database policy.**
 | A task completes only after verification | `verify.py`: schema, deterministic checks, independent review |
 | Concurrency, timeouts, attempts and token budgets | `OrgSettings` (validated) + `scheduler.py` |
 | Every configuration change and security denial is audited | `audit_events` table, written by the backend |
+| Agent code runs only in the offline, unprivileged, resource-limited sandbox, and only during verification | `sandbox.py`, `verify.run_tests` |
+| External AI clients act through revocable org tokens and cannot approve plans | `automation.resolve_token`, `mcp_server.py` (no approval tool) |
+| Webhook payloads are untrusted data; automated plans need approval by default | `planner.generate_plan` (`<event>` block), `triggers.require_approval`, `planner.save_plan` |
 
 ## Roles
 
 | Role | Can |
 |------|-----|
 | `viewer` | Read everything in the organization |
-| `member` | + submit goals |
-| `admin` | + approve or reject plans, cancel runs, edit agents, settings and integrations |
+| `member` | + submit goals, run automations now |
+| `admin` | + approve or reject plans, cancel runs, edit agents, settings, integrations, API tokens and automations |
 | `owner` | + everything an admin can do; is the organization's creator |
 
 ## Sensitive tools

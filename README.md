@@ -55,7 +55,8 @@ refused the output), which is the point: nothing is marked complete on the model
 
 ## Quick start
 
-Prerequisites: Python 3.12 with [uv](https://docs.astral.sh/uv/), Node 22+ with pnpm, a Supabase project.
+Prerequisites: Python 3.12 with [uv](https://docs.astral.sh/uv/), Node 22+ with pnpm, a Supabase project, and
+Docker (Docker Desktop, OrbStack or Colima) for agents whose tests are executed.
 
 1. **Database.** Apply the migrations in `supabase/migrations/` in order (`supabase db push`, or paste
    them into the SQL editor). They create the tables, RLS policies, Vault-backed secret functions and
@@ -74,7 +75,8 @@ Prerequisites: Python 3.12 with [uv](https://docs.astral.sh/uv/), Node 22+ with 
    uv sync
    uv run uvicorn osmsea.api:create_app --factory --app-dir src --env-file .env --port 8000
    ```
-   The scheduler runs inside this process. `GET /health` shows its last tick.
+   The scheduler runs inside this process. `GET /health` shows its last tick. Build the code sandbox
+   image once: `docker build -t osmsea-sandbox sandbox/` (Integrations → Code sandbox shows its status).
 3. **Web.** Create `web/.env.local`:
    ```env
    NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
@@ -122,20 +124,32 @@ Prerequisites: Python 3.12 with [uv](https://docs.astral.sh/uv/), Node 22+ with 
     verified task for each model, from real runs and evaluations. Auto-routing picks the cheapest model
     that meets the org's quality bar. A model pinned in a spec always wins, and every execution records
     why its model was chosen.
+- **Tests that actually run.** Agents with `verification.run_tests` (the template developer) must ship pytest
+  tests and a `test_command`. Verification runs them in a locked-down Docker container: no network, read-only
+  root filesystem, unprivileged user, no capabilities, and memory, CPU, process and time limits. Files go in
+  as a tar stream and nothing from the host is mounted. A failing test fails the task, and its output becomes
+  the feedback for the next attempt. The reviewer sees the trusted exit code.
+- **OSMSEA as an MCP server.** Claude Code, Cursor, Claude Desktop or any MCP client can connect to `/mcp`
+  with an organization API token. It exposes `list_agents`, `submit_goal`, `get_workflow` (with waiting)
+  and `search_memory`. Clients cannot approve plans: plans that need approval wait for a human in the UI.
+  Tokens are stored hashed, shown once, revocable and audited.
+- **Automations.** Goals can run on a schedule (every 15 minutes to every year) or from a webhook, with the
+  secret in a Bearer header or `?token=`. Webhook payloads reach the planner only as untrusted data. Plans
+  from automations need approval by default, and a run is skipped while the previous one is still active.
 - Live UI over real data through Supabase Realtime. Audit log of configuration changes, approvals and
   security denials.
 
 ## Not implemented yet
 
-Mid-task approval of individual tool calls · member invitations · code
-execution or sandboxed tests (agents propose code; files are parse-checked, never run) · a separate
-worker process (the scheduler runs in the API process).
+Mid-task approval of individual tool calls · member invitations · OAuth for OSMSEA's MCP server
+(static tokens today) · cron expressions for schedules (fixed intervals today) · sandboxes for languages
+other than Python · a separate worker process (the scheduler runs in the API process).
 
 ## Tests
 
 ```bash
 cd backend
-uv run pytest -q                                          # 70 tests: scripted model, in-memory store, in-process MCP server
+uv run pytest -q                                          # 78 tests: scripted model, in-memory store, in-process MCP servers, real sandbox if Docker is up
 OSMSEA_LIVE=1 uv run pytest tests/test_live_supabase.py   # real Supabase: persistence, RLS isolation, Vault
 OSMSEA_LIVE_MCP=1 uv run pytest tests/test_mcp.py        # real public MCP server (DeepWiki)
 cd ../web && pnpm exec tsc --noEmit && pnpm lint && pnpm build
@@ -150,8 +164,9 @@ cd ../web && pnpm exec tsc --noEmit && pnpm lint && pnpm build
 
 ## Project status
 
-In development. Next on the roadmap: a fully verified multi-agent run on a production model, MCP OAuth and
-stdio servers, member invitations, and a separate worker process. Issues and suggestions are welcome.
+In development. Next on the roadmap: a fully verified multi-agent run on a production model, cost and
+success forecasts before approval, time-travel debugging of runs, MCP OAuth, member invitations, and a
+separate worker process. Issues and suggestions are welcome.
 
 ## License
 

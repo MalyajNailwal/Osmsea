@@ -9,8 +9,10 @@ writes ─ fetch + Bearer JWT ─► api.py ── role check ── orgs.py / p
                                          │                                     role
                                          └─► scheduler.Worker (asyncio loop)
                                                ├─ planner.plan_workflow ─► LLM provider (OpenRouter / OpenAI-compatible)
-                                               ├─ executor.execute ──────► tools.py (fetch_url / web_search / memory_search)
-                                               └─ verify.verify_output ──► reviewer model call
+                                               ├─ executor.execute ──────► tools.py (fetch_url / web_search / memory_search) + MCP tools
+                                               ├─ verify.verify_output ──► sandbox.py (docker, offline) ─► reviewer model call
+                                               └─ automation.fire_due ───► scheduled triggers
+AI clients ── MCP + API token ─► /mcp (mcp_server.py)        webhooks ─► /hooks/{id} (automation.py)
 ```
 
 **Reads** go straight from the browser to Supabase and are limited by row-level security to the
@@ -35,6 +37,9 @@ Client roles have no INSERT/UPDATE/DELETE privileges at all.
 | `scheduler.py` | Worker loop: promote/claim/run/finish, retries, cancellation, recovery, artifacts and memory; background evaluation jobs |
 | `evals.py` | Evaluation cases from verified attempts, replayed evaluation runs, activation gate, per-model stats and routing |
 | `improve.py` | Failure analysis, policy-checked spec revision proposals, accept/reject |
+| `sandbox.py` | Runs an output's tests in a locked-down Docker container (tar over stdin, no mounts, no network) |
+| `mcp_server.py` | OSMSEA's own MCP server at `/mcp`: token auth, `list_agents`, `submit_goal`, `get_workflow`, `search_memory` |
+| `automation.py` | Organization API tokens; schedule and webhook triggers; firing with pile-up protection |
 | `orgs.py` | Organization, department, agent-version, settings, integration and memory configuration, with audit |
 | `auth.py` / `api.py` | Session validation, role checks, HTTP routes |
 | `store.py` | `SupabaseStore` (PostgREST) and `MemoryStore` (tests) behind one small table API |
@@ -51,6 +56,10 @@ task ids, pinned `agent_version_id`, lease, attempt, output, verification), `age
 attempt, unique on `(task_id, attempt)`, with step log, tokens, cost), `execution_events`, `approvals`,
 `artifacts`, `memory_items` (full-text indexed), `audit_events`. Each execution also stores its full
 tool results (`tool_recordings`) and its model-routing decision (`routing`).
+
+Automation: `api_tokens` (SHA-256 of the token, prefix, creator, last use, revocation) and `triggers`
+(schedule interval and next run, or a hashed webhook secret; approval policy; last run). Workflows record
+the `trigger_id`, a `force_approval` flag and the untrusted event `context`.
 
 Self-improvement: `eval_cases` (one per verified attempt: task, prerequisite outputs, tool recordings,
 baseline result), `eval_runs` (a spec, identified by SHA-256, optionally with a model, replayed against
@@ -106,6 +115,18 @@ failure report, its evaluation run and the admin decision). Client roles can onl
 
 ## Security boundaries
 
+- Sandbox: each test run is a fresh container (`--network none --read-only --cap-drop ALL
+  --security-opt no-new-privileges --user 65534`, tmpfs work dirs, 512 MB, 1 CPU, 128 processes, 60 s).
+  The image is never pulled at run time. Output is clipped and treated as untrusted; only the exit code is
+  trusted. If Docker is unavailable, the task fails without a retry and says why.
+- OSMSEA MCP server and tokens: a token is a 256-bit random value stored as SHA-256, scoped to one
+  organization and acting as its creator with member rights. It stops working when revoked or when the
+  creator leaves the org. Clients can submit and read but cannot approve, edit or read credentials.
+  At most 10 active workflows per org can be started this way.
+- Webhooks: unknown trigger and wrong secret give the same 404, and secrets are compared in constant
+  time. Payloads are capped at 64 KB and reach the planner fenced as untrusted data. Webhook and
+  schedule runs require plan approval unless an admin turns that off per trigger.
+
 - Tool permission = spec request ∩ org tool policy ∩ configured integrations ∩ approved plan,
   re-checked on every call. Calls outside that set are denied, logged as `tool_denied`, and audited.
 - MCP tools: a spec may request `mcp__<server>__<tool>`, but the tool is usable only if an admin
@@ -138,3 +159,7 @@ failure report, its evaluation run and the admin decision). Client roles can onl
 | Evaluation cases run sequentially, at most `eval_max_cases` per run | Bound parallelism with a semaphore |
 | Model stats aggregate the latest 2,000 executions and eval results in Python | A SQL view or materialized rollup |
 | Unrecorded built-in tools run live during evaluations, so their results can drift | Fail closed on unrecorded calls, if reproducibility matters more than coverage |
+| Sandbox containers share the host kernel | Run the same command through gVisor (`--runtime runsc`) or a microVM provider for multi-tenant hosting |
+| Schedules are fixed intervals | Cron expressions, if calendar rules are needed |
+| MCP server auth is static tokens | OAuth 2.1 for clients that require it (e.g. hosted connectors) |
+| Webhook secrets can travel in the query string for senders that cannot set headers | HMAC signature verification per provider |
