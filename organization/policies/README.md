@@ -19,6 +19,7 @@ rules; **enforcement is always in backend code or database policy.**
 | Every configuration change and security denial is audited | `audit_events` table, written by the backend |
 | Agent code runs only in the offline, unprivileged, resource-limited sandbox, and only during verification | `sandbox.py`, `verify.run_tests` |
 | External AI clients act through revocable org tokens and cannot approve plans | `automation.resolve_token`, `mcp_server.py` (no approval tool) |
+| Invitations work once, expire, and only for the invited confirmed email; the owner cannot be demoted or removed | `members.py` |
 | Webhook payloads are untrusted data; automated plans need approval by default | `planner.generate_plan` (`<event>` block), `triggers.require_approval`, `planner.save_plan` |
 
 ## Roles
@@ -26,8 +27,8 @@ rules; **enforcement is always in backend code or database policy.**
 | Role | Can |
 |------|-----|
 | `viewer` | Read everything in the organization |
-| `member` | + submit goals, run automations now |
-| `admin` | + approve or reject plans, cancel runs, edit agents, settings, integrations, API tokens and automations |
+| `member` | + submit goals, run automations now, replay past attempts |
+| `admin` | + approve or reject plans, cancel runs, edit agents, settings, integrations, API tokens, automations; invite, re-role and remove members |
 | `owner` | + everything an admin can do; is the organization's creator |
 
 ## Sensitive tools

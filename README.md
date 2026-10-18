@@ -136,12 +136,23 @@ Docker (Docker Desktop, OrbStack or Colima) for agents whose tests are executed.
 - **Automations.** Goals can run on a schedule (every 15 minutes to every year) or from a webhook, with the
   secret in a Bearer header or `?token=`. Webhook payloads reach the planner only as untrusted data. Plans
   from automations need approval by default, and a run is skipped while the previous one is still active.
+- **Forecasts before approval.** Every plan comes with an expected chance of success, cost (retries
+  included) and duration (critical path). Each task's figures come from that agent's verified history on
+  the model it will use. Tasks with no history stay unknown rather than guessed. After the run, the
+  forecast is shown next to the actual results.
+- **Replay & fork.** Any past attempt can be re-run with an edited spec or another model. Recorded tool
+  results answer the same calls, verification runs exactly as in production, and nothing real is touched.
+  Original and replay are compared side by side: checks, output, steps and spec diff.
+- **Members.** Admins create invite links that are single-use, expire after 7 days and work only for the
+  invited, confirmed email. Admins can also change roles and remove members, and anyone can leave. The
+  owner's membership is protected.
 - Live UI over real data through Supabase Realtime. Audit log of configuration changes, approvals and
   security denials.
 
 ## Not implemented yet
 
-Mid-task approval of individual tool calls · member invitations · OAuth for OSMSEA's MCP server
+Mid-task approval of individual tool calls · invitation emails (invites are copy-links) · resuming a replay
+mid-run from step N (replays restart the attempt with recorded tools) · OAuth for OSMSEA's MCP server
 (static tokens today) · cron expressions for schedules (fixed intervals today) · sandboxes for languages
 other than Python · a separate worker process (the scheduler runs in the API process).
 
@@ -149,7 +160,7 @@ other than Python · a separate worker process (the scheduler runs in the API pr
 
 ```bash
 cd backend
-uv run pytest -q                                          # 78 tests: scripted model, in-memory store, in-process MCP servers, real sandbox if Docker is up
+uv run pytest -q                                          # 81 tests: scripted model, in-memory store, in-process MCP servers, real sandbox if Docker is up
 OSMSEA_LIVE=1 uv run pytest tests/test_live_supabase.py   # real Supabase: persistence, RLS isolation, Vault
 OSMSEA_LIVE_MCP=1 uv run pytest tests/test_mcp.py        # real public MCP server (DeepWiki)
 cd ../web && pnpm exec tsc --noEmit && pnpm lint && pnpm build
@@ -164,9 +175,8 @@ cd ../web && pnpm exec tsc --noEmit && pnpm lint && pnpm build
 
 ## Project status
 
-In development. Next on the roadmap: a fully verified multi-agent run on a production model, cost and
-success forecasts before approval, time-travel debugging of runs, MCP OAuth, member invitations, and a
-separate worker process. Issues and suggestions are welcome.
+In development. Next on the roadmap: a fully verified multi-agent run on a production model, MCP OAuth,
+invitation emails, self-healing replanning when a task fails, and a separate worker process. Issues and suggestions are welcome.
 
 ## License
 

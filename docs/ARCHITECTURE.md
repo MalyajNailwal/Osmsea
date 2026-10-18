@@ -40,6 +40,7 @@ Client roles have no INSERT/UPDATE/DELETE privileges at all.
 | `sandbox.py` | Runs an output's tests in a locked-down Docker container (tar over stdin, no mounts, no network) |
 | `mcp_server.py` | OSMSEA's own MCP server at `/mcp`: token auth, `list_agents`, `submit_goal`, `get_workflow`, `search_memory` |
 | `automation.py` | Organization API tokens; schedule and webhook triggers; firing with pile-up protection |
+| `members.py` | Invitation links (single-use, expiring, bound to a confirmed email), role changes, leaving |
 | `orgs.py` | Organization, department, agent-version, settings, integration and memory configuration, with audit |
 | `auth.py` / `api.py` | Session validation, role checks, HTTP routes |
 | `store.py` | `SupabaseStore` (PostgREST) and `MemoryStore` (tests) behind one small table API |
@@ -60,6 +61,10 @@ tool results (`tool_recordings`) and its model-routing decision (`routing`).
 Automation: `api_tokens` (SHA-256 of the token, prefix, creator, last use, revocation) and `triggers`
 (schedule interval and next run, or a hashed webhook secret; approval policy; last run). Workflows record
 the `trigger_id`, a `force_approval` flag and the untrusted event `context`.
+
+Collaboration and debugging: `workflows.forecast` (computed at planning by `evals.forecast_plan`),
+`replays` (an edited spec and/or model re-run against an execution's recorded tool results, with its
+output, verification, steps and cost) and `invitations` (hashed token, email, role, expiry, acceptance).
 
 Self-improvement: `eval_cases` (one per verified attempt: task, prerequisite outputs, tool recordings,
 baseline result), `eval_runs` (a spec, identified by SHA-256, optionally with a model, replayed against
@@ -83,6 +88,15 @@ failure report, its evaluation run and the admin decision). Client roles can onl
 7. `verify.py` runs the checks. Pass: the task completes, and artifacts and memory are written by trusted
    code. Fail: the task is retried with the failure as feedback, or marked failed with dependents blocked.
 8. Every state change reaches the UI through Realtime.
+
+## Forecasts
+
+When a plan is saved, `forecast_plan` estimates each task from that agent's verified runs and evaluations
+on the model `choose_model` would pick. The pass rate per attempt p and max attempts n give a success
+chance of 1 − (1 − p)ⁿ and an expected Σ (1 − p)ᵏ attempts. Expected cost and time scale the per-attempt
+averages by that. The workflow total is the product of the task success chances, the sum of the task
+costs, and the longest path through the DAG for duration. Any task without history makes the
+corresponding total `null`: the UI shows "unknown", never an invented number.
 
 ## Self-improvement loop
 
@@ -123,6 +137,12 @@ failure report, its evaluation run and the admin decision). Client roles can onl
   organization and acting as its creator with member rights. It stops working when revoked or when the
   creator leaves the org. Clients can submit and read but cannot approve, edit or read credentials.
   At most 10 active workflows per org can be started this way.
+- Invitations: a 256-bit token stored as SHA-256 that expires after 7 days and can be accepted once,
+  only by a signed-in user whose confirmed email matches the invite. The owner cannot be demoted or
+  removed, and admins cannot change their own role. Removing a member also disables their API tokens.
+- Replays use the evaluation sandbox. `persist=False` means no task, execution, event or audit writes.
+  Recorded calls are answered from the recording, unrecorded MCP calls are refused, and the agent id
+  cannot change.
 - Webhooks: unknown trigger and wrong secret give the same 404, and secrets are compared in constant
   time. Payloads are capped at 64 KB and reach the planner fenced as untrusted data. Webhook and
   schedule runs require plan approval unless an admin turns that off per trigger.
@@ -163,3 +183,6 @@ failure report, its evaluation run and the admin decision). Client roles can onl
 | Schedules are fixed intervals | Cron expressions, if calendar rules are needed |
 | MCP server auth is static tokens | OAuth 2.1 for clients that require it (e.g. hosted connectors) |
 | Webhook secrets can travel in the query string for senders that cannot set headers | HMAC signature verification per provider |
+| Forecasts treat attempts as independent and use small samples as-is | Bayesian smoothing with a prior per agent, and confidence intervals |
+| Replays restart an attempt from the beginning (with recorded tools) rather than resuming at step N | Persist full model transcripts per step, if mid-run resume is needed |
+| Invitation links rely on Supabase email confirmation being on to prove email ownership | Keep "Confirm email" enabled in Supabase Auth (required for production) |
