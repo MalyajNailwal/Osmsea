@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 32 32" role="img" aria-label="OSMSEA logo">
+  <defs>
+    <linearGradient id="osm-g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9b8cff"/>
+      <stop offset="1" stop-color="#4f7cff"/>
+    </linearGradient>
+  </defs>
+  <path d="M16 2.5 28 9.25v13.5L16 29.5 4 22.75V9.25z" fill="url(#osm-g)" fill-opacity="0.18" stroke="url(#osm-g)" stroke-width="1.5" stroke-linejoin="round"/>
+  <circle cx="16" cy="10" r="2.6" fill="#8b7dff"/>
+  <circle cx="10" cy="20" r="2.6" fill="#5b86ff"/>
+  <circle cx="22" cy="20" r="2.6" fill="#5b86ff"/>
+  <path d="M16 12.6v3.2M14.4 16.6 11.6 18M17.6 16.6l2.8 1.4" stroke="#8b7dff" stroke-width="1.4" stroke-linecap="round"/>
+</svg>
