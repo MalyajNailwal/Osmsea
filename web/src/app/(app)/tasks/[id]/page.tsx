@@ -19,14 +19,14 @@ import { unwrap, useLive, useNow } from "@/lib/hooks";
 import { type Artifact, type Execution, type ExecutionEvent, type Task, supabase } from "@/lib/supabase";
 
 type Permission = { tool: string; agents: string[]; requires_approval: boolean };
-type Check = { name: string; passed: boolean; detail: string };
+type Check = { name: string; passed: boolean; detail: string; output?: string; exit_code?: number };
 type Verification = { passed: boolean; checks: Check[]; review: { criteria: { criterion: string; met: boolean; reason: string }[]; verdict: string; summary: string } | null };
 type Step = { n: number; at: string; type: string; tool?: string; ok: boolean; args?: Record<string, unknown>; preview?: string; ms?: number; evidence?: string[] };
 type PlanJson = { tasks?: { key: string }[] };
 
 const CHECK_LABEL: Record<string, string> = {
   schema: "Schema validation", cited_evidence: "Citations were retrieved", min_sources: "Minimum sources",
-  syntax: "Files parse", independent_review: "Independent review",
+  syntax: "Files parse", tests: "Tests executed in sandbox", independent_review: "Independent review",
 };
 
 function StatCell({ label, icon, children }: { label: string; icon: ReactNode; children: ReactNode }) {
@@ -133,6 +133,12 @@ function VerificationView({ verification }: { verification: Verification | null 
             <div className="min-w-0">
               <div className="text-sm text-ink">{CHECK_LABEL[c.name] ?? c.name}</div>
               <div className="text-xs break-words text-ink-3">{c.detail}</div>
+              {c.output && (
+                <details className="mt-1.5">
+                  <summary className="cursor-pointer text-[11px] text-ink-3 hover:text-ink-2">Sandbox output (exit code {c.exit_code}, offline, printed by the agent&apos;s code)</summary>
+                  <pre className="mt-1.5 max-h-72 overflow-auto rounded-md border border-line bg-[#080912] p-2.5 font-mono text-[11px] leading-relaxed text-ink-2">{c.output}</pre>
+                </details>
+              )}
             </div>
           </div>
         ))}

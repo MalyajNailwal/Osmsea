@@ -320,6 +320,50 @@ export type Database = {
           },
         ]
       }
+      api_tokens: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          last_used_at: string | null
+          name: string
+          org_id: string
+          prefix: string
+          revoked_at: string | null
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_used_at?: string | null
+          name: string
+          org_id: string
+          prefix: string
+          revoked_at?: string | null
+          token_hash: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_used_at?: string | null
+          name?: string
+          org_id?: string
+          prefix?: string
+          revoked_at?: string | null
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_tokens_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       approvals: {
         Row: {
           comment: string | null
@@ -1271,16 +1315,93 @@ export type Database = {
           },
         ]
       }
+      triggers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          goal: string
+          id: string
+          interval_minutes: number | null
+          kind: string
+          last_error: string | null
+          last_run_at: string | null
+          last_workflow_id: string | null
+          name: string
+          next_run_at: string | null
+          org_id: string
+          require_approval: boolean
+          runs: number
+          secret_hash: string | null
+          secret_prefix: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          goal: string
+          id?: string
+          interval_minutes?: number | null
+          kind: string
+          last_error?: string | null
+          last_run_at?: string | null
+          last_workflow_id?: string | null
+          name: string
+          next_run_at?: string | null
+          org_id: string
+          require_approval?: boolean
+          runs?: number
+          secret_hash?: string | null
+          secret_prefix?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          goal?: string
+          id?: string
+          interval_minutes?: number | null
+          kind?: string
+          last_error?: string | null
+          last_run_at?: string | null
+          last_workflow_id?: string | null
+          name?: string
+          next_run_at?: string | null
+          org_id?: string
+          require_approval?: boolean
+          runs?: number
+          secret_hash?: string | null
+          secret_prefix?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "triggers_last_workflow_id_fkey"
+            columns: ["last_workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "triggers_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workflows: {
         Row: {
           acceptance_criteria: Json
           approved_at: string | null
           approved_by: string | null
           completed_at: string | null
+          context: Json | null
           cost_usd: number
           created_at: string
           created_by: string | null
           error: string | null
+          force_approval: boolean
           goal: string
           id: string
           objective: string | null
@@ -1293,6 +1414,7 @@ export type Database = {
           status: string
           token_budget: number
           tokens_used: number
+          trigger_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1300,10 +1422,12 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           completed_at?: string | null
+          context?: Json | null
           cost_usd?: number
           created_at?: string
           created_by?: string | null
           error?: string | null
+          force_approval?: boolean
           goal: string
           id?: string
           objective?: string | null
@@ -1316,6 +1440,7 @@ export type Database = {
           status?: string
           token_budget?: number
           tokens_used?: number
+          trigger_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1323,10 +1448,12 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           completed_at?: string | null
+          context?: Json | null
           cost_usd?: number
           created_at?: string
           created_by?: string | null
           error?: string | null
+          force_approval?: boolean
           goal?: string
           id?: string
           objective?: string | null
@@ -1339,6 +1466,7 @@ export type Database = {
           status?: string
           token_budget?: number
           tokens_used?: number
+          trigger_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1347,6 +1475,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflows_trigger_id_fkey"
+            columns: ["trigger_id"]
+            isOneToOne: false
+            referencedRelation: "triggers"
             referencedColumns: ["id"]
           },
         ]

@@ -220,7 +220,8 @@ function AgentView({ id }: { id: string }) {
           <Section title="Verification & escalation">
             <div className="space-y-2 text-sm">
               {([["Schema validation", true], ["Cited evidence must be retrieved", spec.verification.require_cited_evidence],
-                ["Syntax check of files", spec.verification.syntax_check], ["Independent review", spec.verification.independent_review]] as const)
+                ["Syntax check of files", spec.verification.syntax_check], ["Tests run in sandbox", spec.verification.run_tests ?? false],
+                ["Independent review", spec.verification.independent_review]] as const)
                 .map(([label, on]) => (
                   <div key={label} className="flex items-center justify-between">
                     <span className="text-ink-2">{label}</span>

@@ -1,6 +1,6 @@
-import { type AgentProposal, type EvalRun, type Integration, type McpServer, type Organization, supabase, type Workflow } from "./supabase";
+import { type AgentProposal, type ApiToken, type EvalRun, type Integration, type McpServer, type Organization, supabase, type Trigger, type Workflow } from "./supabase";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export class ApiError extends Error {
   constructor(message: string, public status: number, public errors: string[] = []) {
@@ -62,7 +62,7 @@ export type AgentSpec = {
   id: string; name: string; department: string; role: string; mission: string; responsibilities: string[];
   capabilities: string[]; limitations: string[]; allowed_tools: string[]; inputs: string[]; outputs: string[];
   output_schema: string; acceptance_criteria: string[];
-  verification: { require_cited_evidence: boolean; min_sources: number; syntax_check: boolean; independent_review: boolean };
+  verification: { require_cited_evidence: boolean; min_sources: number; syntax_check: boolean; run_tests?: boolean; independent_review: boolean };
   escalation: { max_attempts: number; on_failure: string }; limits: { max_steps: number; timeout_seconds: number };
   model?: string | null; instructions: string;
 };
@@ -70,6 +70,10 @@ export type OrgStatus = {
   llm: { configured: boolean; provider?: string; model?: string; message?: string };
   worker: { enabled: boolean; last_tick: string | null; running_tasks: number };
   invalid_agents: Record<string, string[]>; providers: string[];
+  sandbox: { available: boolean; image: string; detail: string };
+};
+export type TriggerInput = {
+  name: string; kind: "schedule" | "webhook"; goal: string; interval_minutes?: number; start_at?: string; require_approval: boolean;
 };
 
 export type McpToolInfo = { name: string; description: string; input_schema: Record<string, unknown>; approvable: boolean };
@@ -142,6 +146,13 @@ export const api = {
   proposeRevision: (orgId: string, agentId: string) => request<AgentProposal>("POST", `/orgs/${orgId}/agents/${agentId}/proposals`),
   decideProposal: (orgId: string, proposalId: string, decision: "accept" | "reject") =>
     request<AgentProposal>("POST", `/orgs/${orgId}/proposals/${proposalId}/${decision}`),
+  createToken: (orgId: string, name: string) => request<ApiToken & { token: string }>("POST", `/orgs/${orgId}/api-tokens`, { name }),
+  revokeToken: (orgId: string, tokenId: string) => request<void>("DELETE", `/orgs/${orgId}/api-tokens/${tokenId}`),
+  createTrigger: (orgId: string, body: TriggerInput) => request<Trigger & { secret: string | null }>("POST", `/orgs/${orgId}/triggers`, body),
+  updateTrigger: (orgId: string, triggerId: string, body: { enabled?: boolean; require_approval?: boolean; name?: string; goal?: string }) =>
+    request<Trigger>("PATCH", `/orgs/${orgId}/triggers/${triggerId}`, body),
+  deleteTrigger: (orgId: string, triggerId: string) => request<void>("DELETE", `/orgs/${orgId}/triggers/${triggerId}`),
+  runTrigger: (orgId: string, triggerId: string) => request<Workflow>("POST", `/orgs/${orgId}/triggers/${triggerId}/run`),
   addMemory: (orgId: string, body: { kind: "note" | "decision"; title: string; content: string; tags: string[] }) =>
     request<{ id: string }>("POST", `/orgs/${orgId}/memory`, body),
   deleteMemory: (orgId: string, memoryId: string) => request<void>("DELETE", `/orgs/${orgId}/memory/${memoryId}`),

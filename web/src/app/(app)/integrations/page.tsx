@@ -2,6 +2,7 @@
 
 import { Brain, Check, ExternalLink, Plus, Search } from "lucide-react";
 import { useState } from "react";
+import { AiClientsSection, SandboxCard } from "@/components/ai-clients";
 import { McpServersSection } from "@/components/mcp-servers";
 import { useApp } from "@/components/providers";
 import { Badge, Banner, Button, Card, cx, Field, Input, Modal, PageHeader, Skeleton } from "@/components/ui";
@@ -125,6 +126,8 @@ export default function IntegrationsPage() {
       </section>
 
       <McpServersSection />
+      <AiClientsSection />
+      <SandboxCard />
 
       <Modal open={!!editing} onClose={() => setEditing(null)} title={editing ? `Configure ${editing.name}` : ""} footer={
         <>

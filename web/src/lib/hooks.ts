@@ -5,7 +5,7 @@ import { supabase } from "./supabase";
 
 type LiveTable =
   | "workflows" | "tasks" | "agent_executions" | "execution_events" | "approvals" | "agents" | "memory_items"
-  | "mcp_servers" | "eval_runs" | "eval_results" | "agent_proposals";
+  | "mcp_servers" | "eval_runs" | "eval_results" | "agent_proposals" | "api_tokens" | "triggers";
 
 type LiveState<T> = { data: T | undefined; error: string | null; loading: boolean };
 

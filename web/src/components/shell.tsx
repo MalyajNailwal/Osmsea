@@ -2,7 +2,7 @@
 
 import {
   Bell, Bot, Brain, Building2, Check, ChevronDown, LayoutDashboard, ListChecks, LogOut, Network, Plug, Plus, Search,
-  ShieldCheck, Workflow,
+  ShieldCheck, Workflow, Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -42,6 +42,7 @@ const NAV: { section: string; items: { href: string; label: string; icon: typeof
   { section: "Operate", items: [
     { href: "/tasks", label: "Tasks & Runs", icon: ListChecks, badge: "approvals" },
     { href: "/memory", label: "Shared Memory", icon: Brain },
+    { href: "/automations", label: "Automations", icon: Zap },
   ] },
   { section: "Admin", items: [
     { href: "/integrations", label: "Integrations", icon: Plug },

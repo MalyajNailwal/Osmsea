@@ -37,3 +37,5 @@ export type McpServer = Row<"mcp_servers">;
 export type EvalRun = Row<"eval_runs">;
 export type EvalResult = Row<"eval_results">;
 export type AgentProposal = Row<"agent_proposals">;
+export type ApiToken = Row<"api_tokens">;
+export type Trigger = Row<"triggers">;
