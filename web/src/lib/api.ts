@@ -1,4 +1,4 @@
-import { type AgentProposal, type ApiToken, type EvalRun, type Integration, type McpServer, type Organization, type Replay, supabase, type Trigger, type Workflow } from "./supabase";
+import { type Action, type AgentProposal, type ApiToken, type EvalRun, type Integration, type KnowledgeDocument, type McpServer, type Organization, type Replay, supabase, type Trigger, type Workflow } from "./supabase";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -11,12 +11,13 @@ export class ApiError extends Error {
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
+  const form = body instanceof FormData;  // file uploads: the browser sets the multipart boundary
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, {
       method,
-      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: { ...(form ? {} : { "Content-Type": "application/json" }), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: body === undefined ? undefined : form ? body : JSON.stringify(body),
     });
   } catch {
     throw new ApiError(`Cannot reach the OSMSEA API at ${API_URL}. Is the backend running?`, 0);
@@ -37,7 +38,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export type ToolInfo = { name: string; description: string; integrations: string[] };
 export type OutputSchemaInfo = { name: string; description: string; has_sources: boolean; has_files: boolean };
 export type ProviderInfo = {
-  id: string; name: string; kind: "llm" | "search"; description: string; secret_label: string;
+  id: string; name: string; kind: "llm" | "search" | "code"; description: string; secret_label: string;
   docs_url: string; config_fields: Record<string, string>; enables: string[];
 };
 export type OrgSettings = {
@@ -79,6 +80,9 @@ export type ForecastTask = {
 export type Forecast = {
   tasks: ForecastTask[]; success: number | null; cost_usd: number | null; duration_s: number | null;
   known_tasks: number; total_tasks: number; computed_at: string;
+};
+export type DocumentHit = {
+  chunk_id: string; document_id: string; title: string; ordinal: number; page: number | null; heading: string | null; content: string;
 };
 export type InvitePreview = { organization: string; role: string; email: string; status: string; expires_at: string };
 export type TriggerInput = {
@@ -171,6 +175,18 @@ export const api = {
   removeMember: (orgId: string, userId: string) => request<void>("DELETE", `/orgs/${orgId}/members/${userId}`),
   replay: (orgId: string, executionId: string, body: { source_md?: string; model?: string }) =>
     request<Replay>("POST", `/orgs/${orgId}/executions/${executionId}/replays`, body),
+  uploadDocument: (orgId: string, file: File, title?: string) => {
+    const form = new FormData();
+    form.append("file", file);
+    if (title) form.append("title", title);
+    return request<KnowledgeDocument>("POST", `/orgs/${orgId}/documents`, form);
+  },
+  addDocumentUrl: (orgId: string, url: string) => request<KnowledgeDocument>("POST", `/orgs/${orgId}/documents/url`, { url }),
+  deleteDocument: (orgId: string, documentId: string) => request<void>("DELETE", `/orgs/${orgId}/documents/${documentId}`),
+  searchDocuments: (orgId: string, q: string) =>
+    request<DocumentHit[]>("GET", `/orgs/${orgId}/documents/search?q=${encodeURIComponent(q)}`),
+  decideAction: (orgId: string, actionId: string, decision: "approve" | "reject") =>
+    request<Action>("POST", `/orgs/${orgId}/actions/${actionId}/${decision}`),
   addMemory: (orgId: string, body: { kind: "note" | "decision"; title: string; content: string; tags: string[] }) =>
     request<{ id: string }>("POST", `/orgs/${orgId}/memory`, body),
   deleteMemory: (orgId: string, memoryId: string) => request<void>("DELETE", `/orgs/${orgId}/memory/${memoryId}`),

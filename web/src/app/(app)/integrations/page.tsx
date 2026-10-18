@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, Check, ExternalLink, Plus, Search } from "lucide-react";
+import { Brain, Check, ExternalLink, GitPullRequest, Plus, Search } from "lucide-react";
 import { useState } from "react";
 import { AiClientsSection, SandboxCard } from "@/components/ai-clients";
 import { McpServersSection } from "@/components/mcp-servers";
@@ -163,7 +163,7 @@ function ProviderCard({ provider: p, row, isAdmin, busy, now, onConfigure, onTes
   provider: ProviderInfo; row?: Integration; isAdmin: boolean; busy: string | null; now: number;
   onConfigure: () => void; onTest: () => void; onRemove: () => void;
 }) {
-  const Icon = p.kind === "llm" ? Brain : Search;
+  const Icon = p.kind === "llm" ? Brain : p.kind === "code" ? GitPullRequest : Search;
   const cfg = (row?.config ?? {}) as Record<string, string>;
   const failed = row?.last_test_ok === false;
   return (
@@ -176,7 +176,7 @@ function ProviderCard({ provider: p, row, isAdmin, busy, now, onConfigure, onTes
             {failed ? "Last test failed" : row ? "Configured" : "Not configured"}
           </div>
         </div>
-        <Badge className="ml-auto">{p.kind === "llm" ? "Model provider" : "Search"}</Badge>
+        <Badge className="ml-auto">{p.kind === "llm" ? "Model provider" : p.kind === "code" ? "Code delivery" : "Search"}</Badge>
       </div>
 
       <div className="mt-4 space-y-1.5">

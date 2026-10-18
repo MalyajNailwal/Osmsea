@@ -14,6 +14,79 @@ export type Database = {
   }
   public: {
     Tables: {
+      actions: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          error: string | null
+          id: string
+          kind: string
+          org_id: string
+          payload: Json
+          result: Json | null
+          status: string
+          summary: string
+          task_id: string
+          workflow_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          error?: string | null
+          id?: string
+          kind: string
+          org_id: string
+          payload?: Json
+          result?: Json | null
+          status?: string
+          summary: string
+          task_id: string
+          workflow_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          error?: string | null
+          id?: string
+          kind?: string
+          org_id?: string
+          payload?: Json
+          result?: Json | null
+          status?: string
+          summary?: string
+          task_id?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "actions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "actions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "actions_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_executions: {
         Row: {
           agent_id: string | null
@@ -579,6 +652,110 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "departments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_chunks: {
+        Row: {
+          content: string
+          document_id: string
+          fts: unknown
+          heading: string | null
+          id: string
+          ordinal: number
+          org_id: string
+          page: number | null
+        }
+        Insert: {
+          content: string
+          document_id: string
+          fts?: unknown
+          heading?: string | null
+          id?: string
+          ordinal: number
+          org_id: string
+          page?: number | null
+        }
+        Update: {
+          content?: string
+          document_id?: string
+          fts?: unknown
+          heading?: string | null
+          id?: string
+          ordinal?: number
+          org_id?: string
+          page?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_chunks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          bytes: number
+          chunks: number
+          created_at: string
+          created_by: string | null
+          filename: string | null
+          id: string
+          mime: string | null
+          org_id: string
+          pages: number | null
+          sha256: string
+          source: string
+          source_url: string | null
+          title: string
+        }
+        Insert: {
+          bytes?: number
+          chunks?: number
+          created_at?: string
+          created_by?: string | null
+          filename?: string | null
+          id?: string
+          mime?: string | null
+          org_id: string
+          pages?: number | null
+          sha256: string
+          source: string
+          source_url?: string | null
+          title: string
+        }
+        Update: {
+          bytes?: number
+          chunks?: number
+          created_at?: string
+          created_by?: string | null
+          filename?: string | null
+          id?: string
+          mime?: string | null
+          org_id?: string
+          pages?: number | null
+          sha256?: string
+          source?: string
+          source_url?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1645,6 +1822,19 @@ export type Database = {
       }
       get_mcp_secret: { Args: { p_server: string }; Returns: string }
       is_org_member: { Args: { p_org: string }; Returns: boolean }
+      search_documents: {
+        Args: { p_limit?: number; p_org: string; p_query: string }
+        Returns: {
+          chunk_id: string
+          content: string
+          document_id: string
+          heading: string
+          ordinal: number
+          page: number
+          rank: number
+          title: string
+        }[]
+      }
       search_memory: {
         Args: { p_limit?: number; p_org: string; p_query: string }
         Returns: {

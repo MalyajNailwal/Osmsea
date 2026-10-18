@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { GoalComposer } from "@/components/goal-composer";
 import { useApp } from "@/components/providers";
-import { Banner, Button, Card, EmptyState, Input, PageHeader, Skeleton, StatusBadge, Tabs } from "@/components/ui";
+import { Badge, Banner, Button, Card, EmptyState, Input, PageHeader, Skeleton, StatusBadge, Tabs } from "@/components/ui";
 import { compact, duration, timeAgo, usd } from "@/lib/format";
 import { unwrap, useLive, useNow } from "@/lib/hooks";
 import { supabase } from "@/lib/supabase";
@@ -31,30 +31,32 @@ export default function TasksPage() {
     const workflows = await supabase.from("workflows").select("*").eq("org_id", orgId)
       .order("created_at", { ascending: false }).limit(200).then(unwrap);
     const ids = workflows.map((w) => w.id);
-    const tasks = ids.length
-      ? await supabase.from("tasks").select("workflow_id, status, agent_slug").in("workflow_id", ids).then(unwrap)
-      : [];
-    return { workflows, tasks };
-  }, [orgId], { orgId, tables: ["workflows", "tasks"] });
+    const [tasks, actions] = await Promise.all([
+      ids.length ? supabase.from("tasks").select("workflow_id, status, agent_slug").in("workflow_id", ids).then(unwrap) : [],
+      supabase.from("actions").select("workflow_id").eq("org_id", orgId).eq("status", "pending").then(unwrap),
+    ]);
+    return { workflows, tasks, actions };
+  }, [orgId], { orgId, tables: ["workflows", "tasks", "actions"] });
 
   const rows = useMemo(() => {
     if (!data) return [];
     return data.workflows.map((w) => {
       const tasks = data.tasks.filter((t) => t.workflow_id === w.id);
       return { ...w, total: tasks.length, done: tasks.filter((t) => t.status === "completed").length,
+        deliveries: data.actions.filter((a) => a.workflow_id === w.id).length,
         failed: tasks.filter((t) => t.status === "failed").length, agents: [...new Set(tasks.map((t) => t.agent_slug))] };
     });
   }, [data]);
 
   const counts = {
     all: rows.length,
-    approvals: rows.filter((r) => r.status === "awaiting_approval").length,
+    approvals: rows.filter((r) => r.status === "awaiting_approval" || r.deliveries).length,
     active: rows.filter((r) => ACTIVE.includes(r.status)).length,
     completed: rows.filter((r) => r.status === "completed").length,
     failed: rows.filter((r) => FAILED.includes(r.status)).length,
   };
   const term = q.trim().toLowerCase();
-  const visible = rows.filter((r) => (view === "all" || (view === "approvals" && r.status === "awaiting_approval")
+  const visible = rows.filter((r) => (view === "all" || (view === "approvals" && (r.status === "awaiting_approval" || r.deliveries))
     || (view === "active" && ACTIVE.includes(r.status)) || (view === "completed" && r.status === "completed")
     || (view === "failed" && FAILED.includes(r.status))) && (!term || r.goal.toLowerCase().includes(term)));
 
@@ -96,7 +98,10 @@ export default function TasksPage() {
                     <Link href={`/tasks/${r.id}`} className="line-clamp-2 font-medium text-ink hover:underline">{r.goal}</Link>
                     {r.error && FAILED.includes(r.status) && <div className="mt-0.5 line-clamp-1 text-[11px] text-bad/90">{r.error}</div>}
                   </td>
-                  <td className="px-3 py-3"><StatusBadge status={r.status} /></td>
+                  <td className="px-3 py-3">
+                    <StatusBadge status={r.status} />
+                    {r.deliveries > 0 && <div className="mt-1"><Badge tone="warn">delivery awaiting approval</Badge></div>}
+                  </td>
                   <td className="px-3 py-3">
                     {r.total ? (
                       <div className="w-32">

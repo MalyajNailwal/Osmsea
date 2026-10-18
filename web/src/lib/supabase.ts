@@ -41,3 +41,5 @@ export type ApiToken = Row<"api_tokens">;
 export type Trigger = Row<"triggers">;
 export type Replay = Row<"replays">;
 export type Invitation = Row<"invitations">;
+export type KnowledgeDocument = Row<"documents">;
+export type Action = Row<"actions">;

@@ -2,7 +2,7 @@
 
 import {
   Bell, Bot, Brain, Building2, Check, ChevronDown, LayoutDashboard, ListChecks, LogOut, Network, Plug, Plus, Search,
-  ShieldCheck, Workflow, Zap,
+  BookOpen, ShieldCheck, Workflow, Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -42,6 +42,7 @@ const NAV: { section: string; items: { href: string; label: string; icon: typeof
   { section: "Operate", items: [
     { href: "/tasks", label: "Tasks & Runs", icon: ListChecks, badge: "approvals" },
     { href: "/memory", label: "Shared Memory", icon: Brain },
+    { href: "/knowledge", label: "Knowledge Base", icon: BookOpen },
     { href: "/automations", label: "Automations", icon: Zap },
   ] },
   { section: "Admin", items: [
@@ -204,8 +205,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const { data: pending } = useLive(async () => {
     if (!org) return [];
-    return supabase.from("approvals").select("id, created_at").eq("org_id", org.id).eq("status", "pending").then(unwrap);
-  }, [org?.id], { orgId: org?.id, tables: ["approvals"] });
+    const [approvals, actions] = await Promise.all([  // plans and deliveries (e.g. pull requests) awaiting an admin
+      supabase.from("approvals").select("id, created_at").eq("org_id", org.id).eq("status", "pending").then(unwrap),
+      supabase.from("actions").select("id, created_at").eq("org_id", org.id).eq("status", "pending").then(unwrap),
+    ]);
+    return [...approvals, ...actions].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }, [org?.id], { orgId: org?.id, tables: ["approvals", "actions"] });
 
   if (!authReady || !session) {
     return <div className="grid min-h-screen place-items-center"><Spinner className="size-6" /></div>;

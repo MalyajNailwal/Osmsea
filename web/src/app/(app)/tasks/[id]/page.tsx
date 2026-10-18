@@ -7,6 +7,7 @@ import {
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { type ReactNode, useMemo, useState } from "react";
+import { DeliveriesCard } from "@/components/deliveries";
 import { ForecastCard } from "@/components/forecast";
 import { PlanDag } from "@/components/plan-dag";
 import { useApp } from "@/components/providers";
@@ -331,6 +332,7 @@ export default function WorkflowPage() {
         </Card>
       )}
 
+      <DeliveriesCard orgId={wf.org_id} workflowId={wf.id} />
       {wf.forecast != null && <ForecastCard forecast={wf.forecast as unknown as Forecast} wf={wf} now={now} />}
 
       {tasks.length > 0 && (
