@@ -25,6 +25,7 @@ Client roles have no INSERT/UPDATE/DELETE privileges at all.
 | `specs.py` | `AgentSpec`, `DepartmentSpec`, `OrgSettings`; Markdown/YAML parsing; safe directory loader |
 | `schemas.py` | Trusted output schemas (`research_result_v1`, `code_change_v1`, `report_v1`), `Plan`, `Review` |
 | `tools.py` | Tool registry and adapters; SSRF-safe fetch with DNS pinning; evidence reporting |
+| `mcp_client.py` | MCP client (Streamable HTTP): discovery, tool calls, argument validation, credential headers, error mapping |
 | `registry.py` | Per-org runtime view: active spec versions (re-validated), settings, configured providers, effective tools |
 | `llm.py` | Provider protocol, OpenAI-compatible adapter, transient-error retry, scripted provider for tests |
 | `integrations.py` | Provider catalog, credential tests, Vault-backed resolution of model and tool credentials |
@@ -40,7 +41,8 @@ Client roles have no INSERT/UPDATE/DELETE privileges at all.
 
 Configuration: `organizations` (settings JSON validated as `OrgSettings`), `organization_members`,
 `departments`, `agents`, `agent_versions` (immutable source Markdown plus parsed spec), `integrations`,
-`integration_secrets` (Vault references, service role only).
+`integration_secrets` (Vault references, service role only), `mcp_servers` (URL, discovered tool
+catalog, approved tools, approval policy) and `mcp_server_secrets` (Vault references, service role only).
 
 Execution state: `workflows` (goal, plan, permissions, budget, usage, cost), `tasks` (dependencies as
 task ids, pinned `agent_version_id`, lease, attempt, output, verification), `agent_executions` (one per
@@ -69,6 +71,11 @@ attempt, unique on `(task_id, attempt)`, with step log, tokens, cost), `executio
 
 - Tool permission = spec request ∩ org tool policy ∩ configured integrations ∩ approved plan,
   re-checked on every call. Calls outside that set are denied, logged as `tool_denied`, and audited.
+- MCP tools: a spec may request `mcp__<server>__<tool>`, but the tool is usable only if an admin
+  approved it on a connected, enabled server. Arguments are validated against the discovered JSON
+  Schema before any call. The credential is injected server-side. Output is clipped and fenced as
+  untrusted, and every call is written to the audit log. Plans using MCP tools require approval
+  unless the server opts out. Server URLs must be public https endpoints.
 - `fetch_url`: http(s) only; ports 80, 443, 8080 and 8443 only; no URL credentials. Every resolved
   address must be public, and the connection is pinned to the checked IP, so DNS rebinding cannot
   redirect it. Redirects are re-checked. Size and time are capped. Only text content types are read.
@@ -89,3 +96,5 @@ attempt, unique on `(task_id, attempt)`, with step log, tokens, cost), `executio
 | Org creation is several PostgREST calls with a compensating delete | A single SQL function, if partial failures become a concern |
 | An interrupted attempt restarts the task from the beginning | Persist conversation state for mid-task resume, only if tools become side-effecting |
 | Admin-supplied LLM base URLs are checked at call time, not pinned | Pin DNS the way `fetch_url` does |
+| MCP: one session per tool call; URLs checked at registration/refresh, not pinned | Pool sessions per execution; pin DNS through a custom `httpx2` transport |
+| MCP: remote Streamable HTTP servers with static credentials only | Add OAuth flows and sandboxed stdio servers |

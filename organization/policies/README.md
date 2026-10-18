@@ -9,6 +9,7 @@ rules; **enforcement is always in backend code or database policy.**
 | All writes go through the backend, which checks the member's role | FastAPI dependencies in `api.py`; no write policies exist for client roles |
 | Credentials are never readable by clients | Supabase Vault; secret RPCs are executable only by `service_role` |
 | Agents only call tools they are permitted to use | `registry.effective_tools` + executor checks on every call |
+| MCP tools are usable only when approved per tool on a connected server; calls are schema-checked and audited | `orgs.update_mcp_server`, `registry.load_registry`, `executor._call_mcp` |
 | Tool permissions = spec request ∩ org policy ∩ configured integrations ∩ approved plan | `registry.py`, `executor.py` |
 | Plans need approval when configured | `planner.compute_requirements`, `api.approve_workflow` |
 | No shell access, no filesystem access, no private-network fetches | Tool registry has no such tools; `fetch_url` blocks non-public addresses and pins DNS |
@@ -30,7 +31,8 @@ rules; **enforcement is always in backend code or database policy.**
 
 Each tool can be disabled per organization, or marked *requires approval*. A plan that needs an
 approval-gated tool always waits for explicit approval, even if the organization has turned off
-general plan approval. Mid-task approval of individual tool calls is **not implemented yet**.
+general plan approval. Plans that use MCP tools need approval by default; an admin can turn this off per server.
+Mid-task approval of individual tool calls is **not implemented yet**.
 
 ## What is stored
 

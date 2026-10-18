@@ -7,7 +7,7 @@
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-runtime-009688?logo=fastapi&logoColor=white">
   <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-RLS%20%2B%20Vault-3ECF8E?logo=supabase&logoColor=white">
-  <img alt="Tests" src="https://img.shields.io/badge/backend%20tests-64%20passing-34d399">
+  <img alt="Tests" src="https://img.shields.io/badge/backend%20tests-69%20passing-34d399">
   <img alt="Status: in development" src="https://img.shields.io/badge/status-in%20development-f59e0b">
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-7c6cff">
 </p>
@@ -51,7 +51,7 @@ refused the output), which is the point: nothing is marked complete on the model
 | <img src="docs/screenshots/execution-viewer.png" alt="Execution viewer"><br>**Execution viewer**: plan DAG, attempts, tool calls, verification | <img src="docs/screenshots/org-builder.png" alt="Organization Builder"><br>**Organization Builder**: canvas plus spec inspector |
 | <img src="docs/screenshots/agent-permissions.png" alt="Agent permissions"><br>**Agent permissions**: spec ∩ policy ∩ integrations | <img src="docs/screenshots/org-map.png" alt="Organization Map"><br>**Organization Map**: hierarchy and recorded hand-offs |
 | <img src="docs/screenshots/shared-memory.png" alt="Shared memory"><br>**Shared memory**: verified findings with provenance | <img src="docs/screenshots/integrations.png" alt="Integrations"><br>**Integrations**: credentials in Supabase Vault |
-| <img src="docs/screenshots/governance.png" alt="Governance"><br>**Governance**: audit log, limits, tool policy | |
+| <img src="docs/screenshots/governance.png" alt="Governance"><br>**Governance**: audit log, limits, tool policy | <img src="docs/screenshots/mcp-servers.png" alt="MCP servers"><br>**MCP servers**: discovered tools, per-tool approval |
 
 ## Quick start
 
@@ -99,6 +99,10 @@ Prerequisites: Python 3.12 with [uv](https://docs.astral.sh/uv/), Node 22+ with 
   feedback, timeouts, token budgets, cancellation, restart recovery.
 - Agent execution with an allow-listed tool set: `fetch_url` (SSRF-guarded, DNS-pinned), `web_search`
   (Tavily or Brave key required), `memory_search`. Unauthorized tool calls are denied and audited.
+- **MCP server integration.** Register remote MCP servers (Streamable HTTP, optional credential kept in Vault).
+  OSMSEA discovers their tools, and an admin approves individual tools, which agents request as
+  `mcp__<server>__<tool>`. Arguments are validated against the tool's schema, output is treated as
+  untrusted, every call is audited, and plans using MCP tools need approval by default.
 - Verification: schema validation; cited sources must have been retrieved during the same execution;
   minimum sources; Python/JSON/TOML/YAML parse checks; an independent reviewer model judges the
   acceptance criteria. Artifacts and verified findings are stored with provenance.
@@ -107,7 +111,7 @@ Prerequisites: Python 3.12 with [uv](https://docs.astral.sh/uv/), Node 22+ with 
 
 ## Not implemented yet
 
-MCP server connections · mid-task approval of individual tool calls · member invitations · code
+Mid-task approval of individual tool calls · member invitations · code
 execution or sandboxed tests (agents propose code; files are parse-checked, never run) · a separate
 worker process (the scheduler runs in the API process).
 
@@ -115,8 +119,9 @@ worker process (the scheduler runs in the API process).
 
 ```bash
 cd backend
-uv run pytest -q                                          # 63 tests, scripted model, in-memory store
+uv run pytest -q                                          # 67 tests: scripted model, in-memory store, in-process MCP server
 OSMSEA_LIVE=1 uv run pytest tests/test_live_supabase.py   # real Supabase: persistence, RLS isolation, Vault
+OSMSEA_LIVE_MCP=1 uv run pytest tests/test_mcp.py        # real public MCP server (DeepWiki)
 cd ../web && pnpm exec tsc --noEmit && pnpm lint && pnpm build
 ```
 
@@ -129,8 +134,8 @@ cd ../web && pnpm exec tsc --noEmit && pnpm lint && pnpm build
 
 ## Project status
 
-In development. Next on the roadmap: a fully verified multi-agent run on a production model, MCP server
-connections, member invitations, and a separate worker process. Issues and suggestions are welcome.
+In development. Next on the roadmap: a fully verified multi-agent run on a production model, MCP OAuth and
+stdio servers, member invitations, and a separate worker process. Issues and suggestions are welcome.
 
 ## License
 
