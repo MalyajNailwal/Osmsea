@@ -96,6 +96,23 @@ class IntegrationIn(BaseModel):
     config: dict[str, str] = Field(default_factory=dict)
 
 
+class McpServerIn(BaseModel):
+    name: str = Field(max_length=80)
+    slug: str = Field(max_length=24)
+    url: str = Field(max_length=500)
+    auth_header: str = Field("Authorization", max_length=64)
+    secret: str | None = Field(None, max_length=2000)
+    require_approval: bool = True
+
+
+class McpServerUpdateIn(BaseModel):
+    approved_tools: list[str] | None = Field(None, max_length=200)
+    require_approval: bool | None = None
+    enabled: bool | None = None
+    secret: str | None = Field(None, max_length=2000)
+    clear_secret: bool = False
+
+
 class MemoryIn(BaseModel):
     kind: Literal["note", "decision"] = "note"
     title: str = Field(max_length=300)
@@ -360,6 +377,43 @@ def create_app(config: Config | None = None, *, db: Any = None, provider_factory
     @app.delete("/orgs/{org_id}/integrations/{provider}", status_code=204)
     async def delete_integration(org_id: UUID, provider: str, request: Request, actor: Admin) -> None:
         await orgs.delete_integration(state(request).db, str(org_id), actor, provider)
+
+    # --- tools & MCP servers -----------------------------------------------------------------------
+
+    @app.get("/orgs/{org_id}/tools")
+    async def org_tools(org_id: UUID, request: Request, _: Viewer) -> dict[str, Any]:
+        """Every tool an agent in this org could request: built-ins plus approved MCP tools."""
+        reg = await load_registry(state(request).db, str(org_id))
+        return {
+            "builtin": [{"name": t.name, "description": t.description, "integrations": list(t.integrations),
+                         "enabled": reg.settings.policy_for(t.name).enabled,
+                         "available": not t.integrations or bool(reg.providers.intersection(t.integrations))}
+                        for t in TOOLS.values()],
+            "mcp": [{"name": r.name, "server": r.slug, "server_name": r.server_name, "tool": r.tool,
+                     "description": r.description, "require_approval": r.require_approval}
+                    for r in reg.mcp_tools.values()],
+        }
+
+    @app.post("/orgs/{org_id}/mcp-servers", status_code=201)
+    async def create_mcp_server(org_id: UUID, body: McpServerIn, request: Request, actor: Admin) -> dict[str, Any]:
+        return await orgs.create_mcp_server(state(request).db, config, str(org_id), actor, name=body.name, slug=body.slug,
+                                            url=body.url, auth_header=body.auth_header, secret=body.secret,
+                                            require_approval=body.require_approval)
+
+    @app.post("/orgs/{org_id}/mcp-servers/{server_id}/refresh")
+    async def refresh_mcp_server(org_id: UUID, server_id: UUID, request: Request, actor: Admin) -> dict[str, Any]:
+        return await orgs.refresh_mcp_server(state(request).db, config, str(org_id), str(server_id), actor)
+
+    @app.patch("/orgs/{org_id}/mcp-servers/{server_id}")
+    async def update_mcp_server(org_id: UUID, server_id: UUID, body: McpServerUpdateIn, request: Request,
+                                actor: Admin) -> dict[str, Any]:
+        return await orgs.update_mcp_server(state(request).db, str(org_id), str(server_id), actor,
+                                            approved_tools=body.approved_tools, require_approval=body.require_approval,
+                                            enabled=body.enabled, secret=body.secret, clear_secret=body.clear_secret)
+
+    @app.delete("/orgs/{org_id}/mcp-servers/{server_id}", status_code=204)
+    async def delete_mcp_server(org_id: UUID, server_id: UUID, request: Request, actor: Admin) -> None:
+        await orgs.delete_mcp_server(state(request).db, str(org_id), str(server_id), actor)
 
     # --- memory ------------------------------------------------------------------------------------
 

@@ -110,6 +110,9 @@ async def tool_secrets(db: Any, org_id: str) -> dict[str, str]:
     for row in rows:
         if key := await _secret(db, row["id"]):
             out[row["provider"]] = key
+    for server in await db.select("mcp_servers", filters={"org_id": org_id, "status": "connected"}):
+        if key := await db.rpc("get_mcp_secret", {"p_server": server["id"]}):
+            out[f"mcp:{server['id']}"] = key
     return out
 
 

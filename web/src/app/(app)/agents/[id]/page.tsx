@@ -283,6 +283,27 @@ function AgentView({ id }: { id: string }) {
                       </tr>
                     );
                   })}
+                  {spec.allowed_tools.filter((name) => name.startsWith("mcp__")).map((name) => {
+                    const allowed = effective?.allowed.includes(name);
+                    const reason = effective?.unavailable[name];
+                    return (
+                      <tr key={name}>
+                        <td className="px-4 py-3">
+                          <div className="font-mono text-[13px] text-ink">{name}</div>
+                          <div className="max-w-xs text-[11px] text-ink-3">Third-party MCP tool (approved per server in Integrations)</div>
+                        </td>
+                        <td className="px-3 py-3"><Pill kind="allowed">Requested</Pill></td>
+                        <td className="px-3 py-3">
+                          {effective == null ? <Skeleton className="h-8 w-28" /> : allowed ? <Pill kind="allowed">Approved</Pill> : <Pill kind="blocked">Not approved</Pill>}
+                        </td>
+                        <td className="px-3 py-3"><Pill kind="muted">MCP server</Pill></td>
+                        <td className="px-3 py-3">
+                          {effective == null ? <Skeleton className="h-8 w-28" /> : allowed ? <Pill kind="approval" title="Plans using MCP tools need approval unless the server opts out">Allowed</Pill>
+                            : <div><Pill kind="blocked" title={reason}>Blocked</Pill>{reason && <div className="mt-1 text-[11px] text-ink-3">{reason}</div>}</div>}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

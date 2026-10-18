@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabase";
 
 type LiveTable =
-  | "workflows" | "tasks" | "agent_executions" | "execution_events" | "approvals" | "agents" | "memory_items";
+  | "workflows" | "tasks" | "agent_executions" | "execution_events" | "approvals" | "agents" | "memory_items"
+  | "mcp_servers";
 
 type LiveState<T> = { data: T | undefined; error: string | null; loading: boolean };
 

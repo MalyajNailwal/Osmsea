@@ -1,4 +1,4 @@
-import { supabase, type Integration, type Organization, type Workflow } from "./supabase";
+import { type Integration, type McpServer, type Organization, supabase, type Workflow } from "./supabase";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -70,6 +70,14 @@ export type OrgStatus = {
   invalid_agents: Record<string, string[]>; providers: string[];
 };
 
+export type McpToolInfo = { name: string; description: string; input_schema: Record<string, unknown>; approvable: boolean };
+export type OrgTools = {
+  builtin: { name: string; description: string; integrations: string[]; enabled: boolean; available: boolean }[];
+  mcp: { name: string; server: string; server_name: string; tool: string; description: string; require_approval: boolean }[];
+};
+export type McpServerInput = { name: string; slug: string; url: string; auth_header?: string; secret?: string; require_approval?: boolean };
+export type McpServerUpdate = { approved_tools?: string[]; require_approval?: boolean; enabled?: boolean; secret?: string; clear_secret?: boolean };
+
 export const api = {
   catalog: () => request<Catalog>("GET", "/catalog"),
   template: () => request<Proposal>("GET", "/templates/default"),
@@ -101,6 +109,12 @@ export const api = {
     request<Integration>("PUT", `/orgs/${orgId}/integrations/${provider}`, body),
   testIntegration: (orgId: string, provider: string) => request<Integration>("POST", `/orgs/${orgId}/integrations/${provider}/test`),
   deleteIntegration: (orgId: string, provider: string) => request<void>("DELETE", `/orgs/${orgId}/integrations/${provider}`),
+  orgTools: (orgId: string) => request<OrgTools>("GET", `/orgs/${orgId}/tools`),
+  createMcpServer: (orgId: string, body: McpServerInput) => request<McpServer>("POST", `/orgs/${orgId}/mcp-servers`, body),
+  refreshMcpServer: (orgId: string, serverId: string) => request<McpServer>("POST", `/orgs/${orgId}/mcp-servers/${serverId}/refresh`),
+  updateMcpServer: (orgId: string, serverId: string, body: McpServerUpdate) =>
+    request<McpServer>("PATCH", `/orgs/${orgId}/mcp-servers/${serverId}`, body),
+  deleteMcpServer: (orgId: string, serverId: string) => request<void>("DELETE", `/orgs/${orgId}/mcp-servers/${serverId}`),
   addMemory: (orgId: string, body: { kind: "note" | "decision"; title: string; content: string; tags: string[] }) =>
     request<{ id: string }>("POST", `/orgs/${orgId}/memory`, body),
   deleteMemory: (orgId: string, memoryId: string) => request<void>("DELETE", `/orgs/${orgId}/memory/${memoryId}`),

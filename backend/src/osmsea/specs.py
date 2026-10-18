@@ -13,6 +13,7 @@ from typing import Annotated, Any
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError, field_validator, model_validator
 
+from .mcp_client import parse_tool_name
 from .schemas import OUTPUT_SCHEMAS
 from .tools import TOOLS
 
@@ -79,9 +80,12 @@ class AgentSpec(_Strict):
     @field_validator("allowed_tools")
     @classmethod
     def _known_tools(cls, tools: list[str]) -> list[str]:
-        unknown = [t for t in tools if t not in TOOLS]
+        # MCP tools (mcp__<server>__<tool>) are org-specific: whether one is approved is checked at
+        # runtime by the registry. Here only their name format is validated.
+        unknown = [t for t in tools if t not in TOOLS and parse_tool_name(t) is None]
         if unknown:
-            raise ValueError(f"unknown tools {unknown}; known tools: {sorted(TOOLS)}")
+            raise ValueError(f"unknown tools {unknown}; known tools: {sorted(TOOLS)} "
+                             "or approved MCP tools named mcp__<server>__<tool>")
         if len(set(tools)) != len(tools):
             raise ValueError("tools must not repeat")
         return tools

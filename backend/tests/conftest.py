@@ -9,6 +9,7 @@ import pytest
 from osmsea.api import create_app
 from osmsea.auth import User
 from osmsea.config import Config
+from osmsea.integrations import tool_secrets
 from osmsea.llm import LLMResponse, ScriptedProvider, tool_reply
 from osmsea.orgs import Actor, create_organization
 from osmsea.specs import load_organization_dir
@@ -19,7 +20,7 @@ ALICE = User("00000000-0000-0000-0000-00000000a11c", "alice@example.com")
 BOB = User("00000000-0000-0000-0000-000000000b0b", "bob@example.com")
 TOKENS = {"token-alice": ALICE, "token-bob": BOB}
 TEST_CONFIG = Config(supabase_url="http://supabase.invalid", supabase_secret_key="x", supabase_publishable_key="x",
-                     poll_interval=0.02, lease_seconds=60)
+                     poll_interval=0.02, lease_seconds=60, allow_private_mcp_urls=True)
 
 
 class FakeAuth:
@@ -73,8 +74,8 @@ async def client_factory(db):
         async def provider_factory(org_id, model=None, org_default_model=None):
             return provider
 
-        async def secrets_factory(org_id):
-            return secrets or {}
+        async def secrets_factory(org_id):  # the real resolver (Vault-backed in production), plus overrides
+            return {**(await tool_secrets(db, org_id)), **(secrets or {})}
 
         app = create_app(TEST_CONFIG, db=db, provider_factory=provider_factory, secrets_factory=secrets_factory,
                          authenticator=FakeAuth())

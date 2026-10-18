@@ -30,9 +30,9 @@ TaskKey = Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9_-]{0,31}$"
 
 
 def _source_ref(v: str) -> str:
-    if v.startswith("memory:") or v.startswith("https://") or v.startswith("http://"):
+    if v.startswith(("memory:", "mcp:", "https://", "http://")):
         return v
-    raise ValueError("must be an http(s) URL or memory:<id>")
+    raise ValueError("must be an http(s) URL, memory:<id> or mcp:<server>/<tool>")
 
 
 SourceRef = Annotated[str, StringConstraints(min_length=8, max_length=2000), AfterValidator(_source_ref)]

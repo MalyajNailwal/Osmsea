@@ -1,7 +1,8 @@
 "use client";
 
-import { Brain, Check, ExternalLink, Plus, Search, ServerCog } from "lucide-react";
+import { Brain, Check, ExternalLink, Plus, Search } from "lucide-react";
 import { useState } from "react";
+import { McpServersSection } from "@/components/mcp-servers";
 import { useApp } from "@/components/providers";
 import { Badge, Banner, Button, Card, cx, Field, Input, Modal, PageHeader, Skeleton } from "@/components/ui";
 import { api, errorMessage, type ProviderInfo } from "@/lib/api";
@@ -123,13 +124,7 @@ export default function IntegrationsPage() {
         </div>
       </section>
 
-      <Card className="mt-6 flex items-start gap-3 px-5 py-4">
-        <ServerCog className="mt-0.5 size-5 shrink-0 text-ink-3" />
-        <div>
-          <div className="text-sm font-medium text-ink">MCP servers: not implemented yet</div>
-          <p className="mt-0.5 text-xs text-ink-3">Agents can only use the built-in tools (web_search, fetch_url, memory_search).</p>
-        </div>
-      </Card>
+      <McpServersSection />
 
       <Modal open={!!editing} onClose={() => setEditing(null)} title={editing ? `Configure ${editing.name}` : ""} footer={
         <>

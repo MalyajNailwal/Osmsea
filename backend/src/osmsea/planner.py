@@ -87,8 +87,7 @@ def compute_requirements(plan: Plan, reg: OrgRegistry) -> tuple[list[dict[str, A
     for t in plan.tasks:
         tools, _ = reg.effective_tools(reg.agents[t.agent_id].spec)
         for tool in tools:
-            entry = perms.setdefault(tool, {"tool": tool, "agents": [], "requires_approval":
-                                            reg.settings.policy_for(tool).requires_approval})
+            entry = perms.setdefault(tool, {"tool": tool, "agents": [], "requires_approval": reg.requires_approval(tool)})
             if t.agent_id not in entry["agents"]:
                 entry["agents"].append(t.agent_id)
     permissions = sorted(perms.values(), key=lambda p: p["tool"])

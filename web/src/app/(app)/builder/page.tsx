@@ -540,9 +540,15 @@ function AgentInspector({ agent, depts, index, mode, canEdit, busy, onClose, onC
   agent: DAgent; depts: DDept[]; index: number; mode: "new" | "existing"; canEdit: boolean; busy: string | null;
   onClose: () => void; onChange: (md: string) => void; onValidate: () => void; onSave: (note: string) => void; onRemove: () => void;
 }) {
-  const { catalog, status } = useApp();
+  const { catalog, status, org } = useApp();
   const [tab, setTab] = useState<"config" | "markdown">("config");
   const [note, setNote] = useState("");
+  const { data: orgTools } = useLive(async () => (org && mode === "existing" ? api.orgTools(org.id) : null),
+    [org?.id, mode], { orgId: org?.id, tables: ["mcp_servers"] });
+  const toolOptions = [
+    ...(catalog?.tools ?? []).map((t) => ({ name: t.name, description: t.description })),
+    ...(orgTools?.mcp ?? []).map((t) => ({ name: t.name, description: `MCP · ${t.server_name}: ${t.description}` })),
+  ];
   const parsed = splitSpec(agent.md);
   const f = parsed.front;
   const verification = obj(f.verification);
@@ -594,7 +600,7 @@ function AgentInspector({ agent, depts, index, mode, canEdit, busy, onClose, onC
             <div>
               <div className="mb-1.5 text-xs font-medium text-ink-2">Permitted tools</div>
               <div className="flex flex-wrap gap-2">
-                {(catalog?.tools ?? []).map((t) => {
+                {toolOptions.map((t) => {
                   const on = tools.includes(t.name);
                   const hint = on ? toolHint(t.name) : undefined;
                   return (
@@ -607,8 +613,10 @@ function AgentInspector({ agent, depts, index, mode, canEdit, busy, onClose, onC
                     </button>
                   );
                 })}
-                {tools.filter((t) => !catalog?.tools.some((x) => x.name === t)).map((t) => (
-                  <span key={t} className="rounded-lg border border-bad/40 bg-bad/10 px-2.5 py-1.5 font-mono text-xs text-bad">{t} (unknown)</span>
+                {tools.filter((t) => !toolOptions.some((x) => x.name === t)).map((t) => (
+                  <span key={t} className="rounded-lg border border-bad/40 bg-bad/10 px-2.5 py-1.5 font-mono text-xs text-bad">
+                    {t} ({t.startsWith("mcp__") ? "MCP tool not approved" : "unknown"})
+                  </span>
                 ))}
               </div>
               <p className="mt-1.5 text-[11px] text-ink-3">Requested tools never grant access on their own: the backend intersects them with org policy, integrations and plan approval.</p>

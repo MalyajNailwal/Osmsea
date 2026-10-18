@@ -12,10 +12,25 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from .mcp_client import approvable, parse_tool_name, tool_name
 from .specs import AgentSpec, OrgSettings, SpecError, parse_settings
 from .tools import TOOLS
 
 log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class McpToolRef:
+    name: str  # mcp__<slug>__<tool>, the name agents and models use
+    server_id: str
+    slug: str
+    server_name: str
+    url: str
+    auth_header: str
+    tool: str  # the tool's name on the MCP server
+    description: str
+    input_schema: dict[str, Any]
+    require_approval: bool
 
 
 @dataclass
@@ -36,17 +51,31 @@ class OrgRegistry:
     agents: dict[str, RegisteredAgent]  # slug -> agent
     providers: set[str]  # integration providers with a stored credential
     invalid: dict[str, list[str]] = field(default_factory=dict)  # slug -> validation errors
+    mcp_tools: dict[str, McpToolRef] = field(default_factory=dict)  # approved tools of connected servers
 
     def active_agents(self) -> list[RegisteredAgent]:
         return [a for a in self.agents.values() if a.status == "active"]
 
+    def requires_approval(self, tool: str) -> bool:
+        ref = self.mcp_tools.get(tool)
+        return ref.require_approval if ref else self.settings.policy_for(tool).requires_approval
+
     def effective_tools(self, spec: AgentSpec, approved: set[str] | None = None) -> tuple[list[str], dict[str, str]]:
         """Tools an agent may actually use: spec request ∩ org policy ∩ integrations ∩ approved plan.
 
+        MCP tools additionally require an admin to have approved that tool on a connected server.
         Returns (allowed, unavailable) where unavailable maps tool -> human-readable reason.
         """
         allowed, unavailable = [], {}
         for name in spec.allowed_tools:
+            if parse_tool_name(name):
+                if name not in self.mcp_tools:
+                    unavailable[name] = "MCP tool not approved, or its server is not connected"
+                elif approved is not None and name not in approved:
+                    unavailable[name] = "not approved for this workflow"
+                else:
+                    allowed.append(name)
+                continue
             tool = TOOLS.get(name)
             if tool is None:
                 unavailable[name] = "unknown tool"
@@ -97,6 +126,15 @@ async def load_registry(db: Any, org_id: str) -> OrgRegistry:
     version_ids = [a["active_version_id"] for a in agent_rows if a.get("active_version_id")]
     versions = {v["id"]: v for v in await db.select("agent_versions", filters={"id": ("in", version_ids)})} if version_ids else {}
     providers = {i["provider"] for i in await db.select("integrations", filters={"org_id": org_id, "status": "configured"})}
+    mcp_tools: dict[str, McpToolRef] = {}
+    for server in await db.select("mcp_servers", filters={"org_id": org_id, "status": "connected"}):
+        approved = set(server.get("approved_tools") or [])
+        for t in server.get("tool_catalog") or []:
+            if t.get("name") in approved and approvable(server["slug"], t["name"]):
+                ref = McpToolRef(tool_name(server["slug"], t["name"]), server["id"], server["slug"], server["name"],
+                                 server["url"], server["auth_header"], t["name"], t.get("description", ""),
+                                 t.get("input_schema") or {}, server["require_approval"])
+                mcp_tools[ref.name] = ref
 
     agents, invalid = {}, {}
     for row in agent_rows:
@@ -120,4 +158,5 @@ async def load_registry(db: Any, org_id: str) -> OrgRegistry:
         agents=agents,
         providers=providers,
         invalid=invalid,
+        mcp_tools=mcp_tools,
     )

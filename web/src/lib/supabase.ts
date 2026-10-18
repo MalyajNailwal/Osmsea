@@ -33,3 +33,4 @@ export type MemoryItem = Row<"memory_items">;
 export type Integration = Row<"integrations">;
 export type AuditEvent = Row<"audit_events">;
 export type Member = Row<"organization_members">;
+export type McpServer = Row<"mcp_servers">;

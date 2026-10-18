@@ -3,6 +3,7 @@ integrations and manual memory. Every change is validated before it is stored an
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -10,6 +11,8 @@ import httpx
 
 from .config import Config
 from .integrations import PROVIDERS, check_base_url, test_credential
+from .mcp_client import SLUG_RE, McpError, approvable, auth_headers, check_url
+from .mcp_client import list_tools as mcp_list_tools
 from .specs import (
     AgentSpec,
     DepartmentSpec,
@@ -283,6 +286,114 @@ async def test_integration(db: Any, config: Config, http: httpx.AsyncClient, org
                        resource_id=row["id"], resource_name=PROVIDERS[provider].name,
                        outcome="success" if ok else "failure", details={"message": message[:300]})
     return updated
+
+
+# --- MCP servers ---------------------------------------------------------------------------------
+
+
+async def create_mcp_server(db: Any, config: Config, org_id: str, actor: Actor, *, name: str, slug: str, url: str,
+                            auth_header: str = "Authorization", secret: str | None = None,
+                            require_approval: bool = True) -> dict[str, Any]:
+    """Register an MCP server, store its credential in Vault, then discover its tools."""
+    name, slug, url, auth_header = name.strip(), slug.strip(), url.strip(), auth_header.strip()
+    errors = []
+    if not SLUG_RE.match(slug):
+        errors.append("slug: 2-24 characters: lowercase letters, digits and hyphens, starting with a letter")
+    if not 1 <= len(name) <= 80:
+        errors.append("name: 1-80 characters")
+    if not re.fullmatch(r"[A-Za-z0-9-]{1,64}", auth_header):
+        errors.append("auth_header: letters, digits and hyphens only")
+    if secret is not None and not 1 <= len(secret.strip()) <= 2000:
+        errors.append("credential: 1-2000 characters")
+    if errors:
+        raise SpecError(errors)
+    try:
+        await check_url(url, config.allow_private_mcp_urls)
+    except McpError as e:
+        raise SpecError([f"url: {e}"]) from e
+    try:
+        row = (await db.insert("mcp_servers", {
+            "org_id": org_id, "slug": slug, "name": name, "url": url, "auth_header": auth_header,
+            "require_approval": require_approval, "status": "pending", "created_by": actor.id,
+            "secret_hint": secret.strip()[-4:] if secret else "",
+        }))[0]
+    except StoreError as e:
+        if e.code == "23505":
+            raise SpecError([f"slug: an MCP server named '{slug}' already exists"]) from e
+        raise
+    if secret:
+        await db.rpc("set_mcp_secret", {"p_server": row["id"], "p_secret": secret.strip()})
+    await record_audit(db, org_id, "mcp.register", "mcp_server", actor_id=actor.id, actor_label=actor.email,
+                       resource_id=row["id"], resource_name=name,
+                       details={"slug": slug, "url": url, "credential": bool(secret), "require_approval": require_approval})
+    return await refresh_mcp_server(db, config, org_id, row["id"], actor)
+
+
+async def refresh_mcp_server(db: Any, config: Config, org_id: str, server_id: str, actor: Actor) -> dict[str, Any]:
+    """Re-discover tools. Approved tools that disappeared from the server are dropped."""
+    server = await _one(db, "mcp_servers", id=server_id, org_id=org_id)
+    secret = await db.rpc("get_mcp_secret", {"p_server": server_id})
+    try:
+        await check_url(server["url"], config.allow_private_mcp_urls)
+        info, tools = await mcp_list_tools(server["url"], auth_headers(server["auth_header"], secret))
+    except McpError as e:
+        status = "disabled" if server["status"] == "disabled" else "error"
+        row = (await db.update("mcp_servers", {"status": status, "last_error": str(e), "last_checked_at": now_iso()},
+                               filters={"id": server_id}))[0]
+        await record_audit(db, org_id, "mcp.refresh", "mcp_server", actor_id=actor.id, actor_label=actor.email,
+                           resource_id=server_id, resource_name=server["name"], outcome="failure", details={"error": str(e)})
+        return row
+    catalog = [{"name": t.name, "description": t.description, "input_schema": t.input_schema,
+                "approvable": approvable(server["slug"], t.name)} for t in tools[:200]]
+    names = {t["name"] for t in catalog}
+    row = (await db.update("mcp_servers", {
+        "status": "disabled" if server["status"] == "disabled" else "connected", "tool_catalog": catalog,
+        "approved_tools": [t for t in server.get("approved_tools") or [] if t in names], "server_info": info,
+        "last_error": None, "last_checked_at": now_iso(),
+    }, filters={"id": server_id}))[0]
+    await record_audit(db, org_id, "mcp.refresh", "mcp_server", actor_id=actor.id, actor_label=actor.email,
+                       resource_id=server_id, resource_name=server["name"], details={"tools": len(catalog), "server": info})
+    return row
+
+
+async def update_mcp_server(db: Any, org_id: str, server_id: str, actor: Actor, *, approved_tools: list[str] | None = None,
+                            require_approval: bool | None = None, enabled: bool | None = None,
+                            secret: str | None = None, clear_secret: bool = False) -> dict[str, Any]:
+    server = await _one(db, "mcp_servers", id=server_id, org_id=org_id)
+    values: dict[str, Any] = {}
+    if approved_tools is not None:
+        discovered = {t["name"] for t in server.get("tool_catalog") or []}
+        bad = [t for t in approved_tools if t not in discovered or not approvable(server["slug"], t)]
+        if bad:
+            raise SpecError([f"approved_tools: not discovered on this server, or not approvable: {bad[:5]}"])
+        values["approved_tools"] = sorted(set(approved_tools))
+    if require_approval is not None:
+        values["require_approval"] = require_approval
+    if enabled is not None:
+        values["status"] = ("connected" if server.get("tool_catalog") and not server.get("last_error") else "pending") \
+            if enabled else "disabled"
+    if secret:
+        if not 1 <= len(secret.strip()) <= 2000:
+            raise SpecError(["credential: 1-2000 characters"])
+        await db.rpc("set_mcp_secret", {"p_server": server_id, "p_secret": secret.strip()})
+        values["secret_hint"] = secret.strip()[-4:]
+    elif clear_secret:
+        await db.delete("mcp_server_secrets", filters={"server_id": server_id})
+        values["secret_hint"] = ""
+    row = (await db.update("mcp_servers", values, filters={"id": server_id}))[0] if values else server
+    await record_audit(db, org_id, "mcp.update", "mcp_server", actor_id=actor.id, actor_label=actor.email,
+                       resource_id=server_id, resource_name=server["name"],
+                       details={"approved_tools": values.get("approved_tools"), "require_approval": require_approval,
+                                "enabled": enabled, "credential_updated": bool(secret), "credential_cleared": clear_secret})
+    return row
+
+
+async def delete_mcp_server(db: Any, org_id: str, server_id: str, actor: Actor) -> None:
+    rows = await db.delete("mcp_servers", filters={"id": server_id, "org_id": org_id})
+    if not rows:
+        raise NotFound("MCP server not found")
+    await record_audit(db, org_id, "mcp.remove", "mcp_server", actor_id=actor.id, actor_label=actor.email,
+                       resource_id=server_id, resource_name=rows[0]["name"])
 
 
 # --- memory --------------------------------------------------------------------------------------

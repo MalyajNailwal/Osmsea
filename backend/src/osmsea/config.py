@@ -28,6 +28,7 @@ class Config(BaseModel):
     poll_interval: float = 1.0
     lease_seconds: int = 60
     allow_private_llm_urls: bool = False  # permit e.g. a local Ollama base URL (development only)
+    allow_private_mcp_urls: bool = False  # permit http/localhost MCP servers (development and tests only)
     template_dir: Path = REPO_ROOT / "organization"
 
     @classmethod
@@ -49,4 +50,5 @@ class Config(BaseModel):
             poll_interval=float(env.get("OSMSEA_POLL_INTERVAL", "1.0")),
             lease_seconds=int(env.get("OSMSEA_LEASE_SECONDS", "60")),
             allow_private_llm_urls=_bool("OSMSEA_ALLOW_PRIVATE_LLM_URLS", False),
+            allow_private_mcp_urls=_bool("OSMSEA_ALLOW_PRIVATE_MCP_URLS", False),
         )

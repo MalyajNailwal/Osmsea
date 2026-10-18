@@ -607,6 +607,97 @@ export type Database = {
           },
         ]
       }
+      mcp_server_secrets: {
+        Row: {
+          secret_id: string
+          server_id: string
+        }
+        Insert: {
+          secret_id: string
+          server_id: string
+        }
+        Update: {
+          secret_id?: string
+          server_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mcp_server_secrets_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: true
+            referencedRelation: "mcp_servers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mcp_servers: {
+        Row: {
+          approved_tools: string[]
+          auth_header: string
+          created_at: string
+          created_by: string | null
+          id: string
+          last_checked_at: string | null
+          last_error: string | null
+          name: string
+          org_id: string
+          require_approval: boolean
+          secret_hint: string
+          server_info: Json
+          slug: string
+          status: string
+          tool_catalog: Json
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          approved_tools?: string[]
+          auth_header?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_checked_at?: string | null
+          last_error?: string | null
+          name: string
+          org_id: string
+          require_approval?: boolean
+          secret_hint?: string
+          server_info?: Json
+          slug: string
+          status?: string
+          tool_catalog?: Json
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          approved_tools?: string[]
+          auth_header?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          last_checked_at?: string | null
+          last_error?: string | null
+          name?: string
+          org_id?: string
+          require_approval?: boolean
+          secret_hint?: string
+          server_info?: Json
+          slug?: string
+          status?: string
+          tool_catalog?: Json
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mcp_servers_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memory_items: {
         Row: {
           agent_id: string | null
@@ -955,6 +1046,7 @@ export type Database = {
         Args: { p_integration: string }
         Returns: string
       }
+      get_mcp_secret: { Args: { p_server: string }; Returns: string }
       is_org_member: { Args: { p_org: string }; Returns: boolean }
       search_memory: {
         Args: { p_limit?: number; p_org: string; p_query: string }
@@ -982,6 +1074,10 @@ export type Database = {
       }
       set_integration_secret: {
         Args: { p_integration: string; p_secret: string }
+        Returns: undefined
+      }
+      set_mcp_secret: {
+        Args: { p_secret: string; p_server: string }
         Returns: undefined
       }
     }

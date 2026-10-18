@@ -161,6 +161,7 @@ class MemoryStore:
         "integrations": [("org_id", "provider")],
         "agent_versions": [("agent_id", "version")],
         "organization_members": [("org_id", "user_id")],
+        "mcp_servers": [("org_id", "slug")],
     }
 
     def __init__(self) -> None:
@@ -253,6 +254,11 @@ class MemoryStore:
             return None
         if fn == "get_integration_secret":
             return self.secrets.get(args["p_integration"])
+        if fn == "set_mcp_secret":
+            self.secrets[f"mcp:{args['p_server']}"] = args["p_secret"]
+            return None
+        if fn == "get_mcp_secret":
+            return self.secrets.get(f"mcp:{args['p_server']}")
         if fn == "add_workflow_usage":
             for row in self.tables["workflows"]:
                 if row["id"] == args["p_workflow"]:
