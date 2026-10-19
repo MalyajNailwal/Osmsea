@@ -2,7 +2,7 @@
 
 import {
   Bell, Bot, Brain, Building2, Check, ChevronDown, LayoutDashboard, ListChecks, LogOut, Network, Plug, Plus, Search,
-  BookOpen, ShieldCheck, Workflow, Zap,
+  BookOpen, MessagesSquare, ShieldCheck, Workflow, Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -33,7 +33,10 @@ export function Logo({ size = 30 }: { size?: number }) {
 }
 
 const NAV: { section: string; items: { href: string; label: string; icon: typeof Bot; badge?: "approvals" }[] }[] = [
-  { section: "Overview", items: [{ href: "/", label: "Command Center", icon: LayoutDashboard }] },
+  { section: "Overview", items: [
+    { href: "/", label: "Command Center", icon: LayoutDashboard },
+    { href: "/spaces", label: "Spaces", icon: MessagesSquare },
+  ] },
   { section: "Build", items: [
     { href: "/builder", label: "Org Builder", icon: Workflow },
     { href: "/map", label: "Org Map", icon: Network },

@@ -110,3 +110,11 @@ body {
 .markdown strong { color: var(--color-ink); }
 .markdown table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.85rem; }
 .markdown th, .markdown td { border: 1px solid var(--color-line); padding: 0.35rem 0.5rem; text-align: left; }
+
+/* Chat messages in Spaces: Markdown with conversational spacing and the message's own colour. */
+.chat-markdown { font-size: 15px; line-height: 1.6; }
+.chat-markdown.compact { font-size: 0.875rem; }
+.chat-markdown p, .chat-markdown ul, .chat-markdown ol { color: inherit; margin: 0.25rem 0; }
+.chat-markdown > :first-child { margin-top: 0; }
+.chat-markdown > :last-child { margin-bottom: 0; }
+.chat-markdown h1, .chat-markdown h2, .chat-markdown h3 { font-size: 1em; margin: 0.6rem 0 0.2rem; }

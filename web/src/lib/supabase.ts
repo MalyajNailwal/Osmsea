@@ -43,3 +43,5 @@ export type Replay = Row<"replays">;
 export type Invitation = Row<"invitations">;
 export type KnowledgeDocument = Row<"documents">;
 export type Action = Row<"actions">;
+export type Space = Row<"spaces">;
+export type SpaceMessage = Row<"space_messages">;

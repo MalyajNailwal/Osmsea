@@ -1,4 +1,4 @@
-import { type Action, type AgentProposal, type ApiToken, type EvalRun, type Integration, type KnowledgeDocument, type McpServer, type Organization, type Replay, supabase, type Trigger, type Workflow } from "./supabase";
+import { type Action, type AgentProposal, type ApiToken, type EvalRun, type Integration, type KnowledgeDocument, type McpServer, type Organization, type Replay, type Space, type SpaceMessage, supabase, type Trigger, type Workflow } from "./supabase";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -81,6 +81,11 @@ export type Forecast = {
   tasks: ForecastTask[]; success: number | null; cost_usd: number | null; duration_s: number | null;
   known_tasks: number; total_tasks: number; computed_at: string;
 };
+export type Persona = { tagline: string; voice: string; color: string };
+export type LibraryAgent = {
+  id: string; name: string; role: string; mission: string; department: string; tools: string[]; persona: Persona | null; source_md: string;
+};
+export type AgentDraft = { valid: boolean; errors: string[]; source_md: string; model?: string };
 export type DocumentHit = {
   chunk_id: string; document_id: string; title: string; ordinal: number; page: number | null; heading: string | null; content: string;
 };
@@ -187,6 +192,20 @@ export const api = {
     request<DocumentHit[]>("GET", `/orgs/${orgId}/documents/search?q=${encodeURIComponent(q)}`),
   decideAction: (orgId: string, actionId: string, decision: "approve" | "reject") =>
     request<Action>("POST", `/orgs/${orgId}/actions/${actionId}/${decision}`),
+  library: () => request<LibraryAgent[]>("GET", "/library"),
+  addLibraryAgent: (orgId: string, template: string) => request<{ id: string }>("POST", `/orgs/${orgId}/agents/from-library`, { template }),
+  draftAgent: (orgId: string, description: string) => request<AgentDraft>("POST", `/orgs/${orgId}/agents/draft`, { description }),
+  createQuickAgent: (orgId: string, source_md: string) => request<{ id: string }>("POST", `/orgs/${orgId}/agents/quick`, { source_md }),
+  createSpace: (orgId: string, body: { name: string; description?: string; agent_ids: string[]; primary_agent_id?: string | null }) =>
+    request<Space>("POST", `/orgs/${orgId}/spaces`, body),
+  updateSpace: (orgId: string, spaceId: string, body: { name?: string; description?: string; agent_ids?: string[]; primary_agent_id?: string | null }) =>
+    request<Space>("PATCH", `/orgs/${orgId}/spaces/${spaceId}`, body),
+  deleteSpace: (orgId: string, spaceId: string) => request<void>("DELETE", `/orgs/${orgId}/spaces/${spaceId}`),
+  postMessage: (orgId: string, spaceId: string, content: string) =>
+    request<SpaceMessage>("POST", `/orgs/${orgId}/spaces/${spaceId}/messages`, { content }),
+  markRead: (orgId: string, spaceId: string) => request<void>("POST", `/orgs/${orgId}/spaces/${spaceId}/read`),
+  decideTool: (orgId: string, messageId: string, allow: boolean, remember = false) =>
+    request<SpaceMessage>("POST", `/orgs/${orgId}/space-messages/${messageId}/decision`, { allow, remember }),
   addMemory: (orgId: string, body: { kind: "note" | "decision"; title: string; content: string; tags: string[] }) =>
     request<{ id: string }>("POST", `/orgs/${orgId}/memory`, body),
   deleteMemory: (orgId: string, memoryId: string) => request<void>("DELETE", `/orgs/${orgId}/memory/${memoryId}`),

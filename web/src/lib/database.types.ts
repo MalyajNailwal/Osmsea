@@ -1520,6 +1520,200 @@ export type Database = {
           },
         ]
       }
+      space_agents: {
+        Row: {
+          added_at: string
+          agent_id: string
+          org_id: string
+          space_id: string
+        }
+        Insert: {
+          added_at?: string
+          agent_id: string
+          org_id: string
+          space_id: string
+        }
+        Update: {
+          added_at?: string
+          agent_id?: string
+          org_id?: string
+          space_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "space_agents_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "space_agents_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "space_agents_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      space_messages: {
+        Row: {
+          author_id: string | null
+          author_kind: string
+          author_label: string
+          content: string
+          created_at: string
+          data: Json
+          id: string
+          kind: string
+          org_id: string
+          space_id: string
+          status: string
+          thread_id: string | null
+        }
+        Insert: {
+          author_id?: string | null
+          author_kind: string
+          author_label: string
+          content?: string
+          created_at?: string
+          data?: Json
+          id?: string
+          kind?: string
+          org_id: string
+          space_id: string
+          status?: string
+          thread_id?: string | null
+        }
+        Update: {
+          author_id?: string | null
+          author_kind?: string
+          author_label?: string
+          content?: string
+          created_at?: string
+          data?: Json
+          id?: string
+          kind?: string
+          org_id?: string
+          space_id?: string
+          status?: string
+          thread_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "space_messages_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "space_messages_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "space_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "space_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      space_reads: {
+        Row: {
+          last_read_at: string
+          org_id: string
+          space_id: string
+          user_id: string
+        }
+        Insert: {
+          last_read_at?: string
+          org_id: string
+          space_id: string
+          user_id: string
+        }
+        Update: {
+          last_read_at?: string
+          org_id?: string
+          space_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "space_reads_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "space_reads_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spaces: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          last_message_at: string
+          name: string
+          org_id: string
+          primary_agent_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          last_message_at?: string
+          name: string
+          org_id: string
+          primary_agent_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          last_message_at?: string
+          name?: string
+          org_id?: string
+          primary_agent_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spaces_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spaces_primary_agent_id_fkey"
+            columns: ["primary_agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           acceptance_criteria: Json
@@ -1729,6 +1923,7 @@ export type Database = {
           plan_errors: Json
           required_permissions: Json
           requires_approval: boolean
+          space_id: string | null
           started_at: string | null
           status: string
           token_budget: number
@@ -1756,6 +1951,7 @@ export type Database = {
           plan_errors?: Json
           required_permissions?: Json
           requires_approval?: boolean
+          space_id?: string | null
           started_at?: string | null
           status?: string
           token_budget?: number
@@ -1783,6 +1979,7 @@ export type Database = {
           plan_errors?: Json
           required_permissions?: Json
           requires_approval?: boolean
+          space_id?: string | null
           started_at?: string | null
           status?: string
           token_budget?: number
@@ -1796,6 +1993,13 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflows_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
             referencedColumns: ["id"]
           },
           {
