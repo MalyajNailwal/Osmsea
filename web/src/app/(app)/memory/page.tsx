@@ -240,7 +240,7 @@ export default function MemoryPage() {
             <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5">
               <span className="text-[13px] font-semibold">Knowledge graph</span>
               <Badge>{graph.nodes.length} nodes · {graph.edges.length} edges</Badge>
-              <div className="ml-auto flex items-center gap-1 rounded-xl border border-line bg-[#090b14] p-1">
+              <div className="ml-auto flex items-center gap-1 rounded-xl border border-line bg-[#161616] p-1">
                 <button onClick={() => setLabels((v) => !v)} aria-pressed={labels} title="Toggle labels"
                   className={cx("rounded-lg p-1.5", labels ? "bg-accent-soft text-[#a99fff]" : "text-ink-3 hover:text-ink")}><Tags className="size-4" /></button>
                 <button onClick={() => setZoom((z) => ({ n: z.n + 1, factor: 1.3 }))} title="Zoom in" className="rounded-lg p-1.5 text-ink-3 hover:text-ink"><Plus className="size-4" /></button>
@@ -281,8 +281,8 @@ export default function MemoryPage() {
                   </div>
                   <div>
                     <div className="mb-2 text-xs font-medium text-ink-2">Edges</div>
-                    <div className="flex items-center gap-2.5 py-1 text-ink-2"><svg width="22" height="6"><line x1="0" y1="3" x2="22" y2="3" stroke="#a5abc4" /></svg> cites</div>
-                    <div className="flex items-center gap-2.5 py-1 text-ink-2"><svg width="22" height="6"><line x1="0" y1="3" x2="22" y2="3" stroke="#a5abc4" strokeDasharray="3 3" /></svg> produced by</div>
+                    <div className="flex items-center gap-2.5 py-1 text-ink-2"><svg width="22" height="6"><line x1="0" y1="3" x2="22" y2="3" stroke="#a8a8a8" /></svg> cites</div>
+                    <div className="flex items-center gap-2.5 py-1 text-ink-2"><svg width="22" height="6"><line x1="0" y1="3" x2="22" y2="3" stroke="#a8a8a8" strokeDasharray="3 3" /></svg> produced by</div>
                   </div>
                 </div>
               ) : selectedItem ? (

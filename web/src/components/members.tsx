@@ -145,7 +145,7 @@ export function MembersSection() {
           <div className="space-y-3">
             <Banner tone="warn">Copy it now: the link is shown once. It works once, only for {link.email}, and expires in 7 days.</Banner>
             <div className="flex items-center gap-2">
-              <code className="min-w-0 flex-1 truncate rounded-lg border border-line bg-[#080912] px-3 py-2 font-mono text-[12px] text-ink">{link.url}</code>
+              <code className="min-w-0 flex-1 truncate rounded-lg border border-line bg-[#161616] px-3 py-2 font-mono text-[12px] text-ink">{link.url}</code>
               <CopyButton text={link.url} />
             </div>
             <p className="text-xs text-ink-3">Send it to them however you like. They sign in or create an account with {link.email}, confirm the address, and accept.</p>

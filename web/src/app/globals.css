@@ -1,18 +1,18 @@
 @import "tailwindcss";
 @import "@xyflow/react/dist/style.css";
 
-/* OSMSEA is dark-only, matching the reference screens. Tokens are defined once here. */
+/* OSMSEA is dark-only: neutral graphite surfaces, light ink, violet kept for links and status. Tokens are defined once here. */
 @theme {
-  --color-canvas: #06070d;
-  --color-sidebar: #090b14;
-  --color-panel: #0d0f1a;
-  --color-panel-2: #131628;
-  --color-panel-3: #1a1e33;
-  --color-line: rgb(255 255 255 / 0.07);
-  --color-line-strong: rgb(255 255 255 / 0.13);
-  --color-ink: #eef0f7;
-  --color-ink-2: #a5abc4;
-  --color-ink-3: #6d7392;
+  --color-canvas: #181818;
+  --color-sidebar: #141414;
+  --color-panel: #1f1f1f;
+  --color-panel-2: #2a2a2a;
+  --color-panel-3: #333333;
+  --color-line: rgb(255 255 255 / 0.08);
+  --color-line-strong: rgb(255 255 255 / 0.14);
+  --color-ink: #ededed;
+  --color-ink-2: #a8a8a8;
+  --color-ink-3: #808080;
   --color-accent: #7c6cff;
   --color-accent-2: #4f7cff;
   --color-accent-soft: rgb(124 108 255 / 0.14);
@@ -68,7 +68,7 @@ body {
 }
 
 .dot-grid {
-  background-color: #080912;
+  background-color: #161616;
   background-image: radial-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1px);
   background-size: 18px 18px;
 }
@@ -83,11 +83,11 @@ body {
   --xy-edge-stroke-default: rgb(165 171 196 / 0.35);
   --xy-edge-stroke-width-default: 1.5;
   --xy-handle-background-color-default: #7c6cff;
-  --xy-handle-border-color-default: #0d0f1a;
-  --xy-minimap-background-color-default: #0d0f1a;
-  --xy-controls-button-background-color-default: #131628;
-  --xy-controls-button-background-color-hover-default: #1a1e33;
-  --xy-controls-button-color-default: #a5abc4;
+  --xy-handle-border-color-default: #1f1f1f;
+  --xy-minimap-background-color-default: #1f1f1f;
+  --xy-controls-button-background-color-default: #2a2a2a;
+  --xy-controls-button-background-color-hover-default: #333333;
+  --xy-controls-button-color-default: #a8a8a8;
   --xy-controls-button-border-color-default: rgb(255 255 255 / 0.07);
   --xy-attribution-background-color-default: transparent;
 }
@@ -105,7 +105,7 @@ body {
 .markdown ol { list-style: decimal; }
 .markdown a { color: #a99fff; text-decoration: underline; text-underline-offset: 2px; word-break: break-word; }
 .markdown code { font-family: var(--font-mono); font-size: 0.8em; background: rgb(255 255 255 / 0.06); padding: 0.1rem 0.3rem; border-radius: 0.3rem; }
-.markdown pre { background: #080912; border: 1px solid var(--color-line); padding: 0.75rem; border-radius: 0.6rem; overflow-x: auto; margin: 0.75rem 0; }
+.markdown pre { background: #161616; border: 1px solid var(--color-line); padding: 0.75rem; border-radius: 0.6rem; overflow-x: auto; margin: 0.75rem 0; }
 .markdown pre code { background: none; padding: 0; }
 .markdown strong { color: var(--color-ink); }
 .markdown table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.85rem; }

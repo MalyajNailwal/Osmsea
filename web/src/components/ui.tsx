@@ -64,7 +64,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   const base = "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
   const sizes = { sm: "h-8 px-3 text-xs", md: "h-9 px-4 text-sm" };
   const variants = {
-    primary: "bg-gradient-to-r from-accent to-accent-2 text-white shadow-[0_8px_24px_-10px_rgba(124,108,255,0.8)] hover:brightness-110",
+    primary: "bg-ink text-canvas hover:bg-white",
     secondary: "border border-line-strong bg-panel-2 text-ink hover:bg-panel-3",
     ghost: "text-ink-2 hover:bg-white/5 hover:text-ink",
     danger: "border border-bad/40 bg-bad/10 text-bad hover:bg-bad/20",
@@ -78,7 +78,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   );
 });
 
-const fieldBase = "rounded-lg border border-line-strong bg-[#090b14] px-3 text-sm text-ink placeholder:text-ink-3 focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-60";
+const fieldBase = "rounded-lg border border-line-strong bg-[#161616] px-3 text-sm text-ink placeholder:text-ink-3 focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-60";
 
 /** Full width unless the caller sets its own width (Tailwind can't tell which of two w-* classes wins). */
 function field(className?: string) {
@@ -139,7 +139,7 @@ export function Segmented<T extends string>({ options, value, onChange }: {
   options: { id: T; label: ReactNode }[]; value: T; onChange: (id: T) => void;
 }) {
   return (
-    <div className="inline-flex rounded-lg border border-line bg-[#090b14] p-0.5">
+    <div className="inline-flex rounded-lg border border-line bg-[#161616] p-0.5">
       {options.map((o) => (
         <button key={o.id} onClick={() => onChange(o.id)}
           className={cx("rounded-md px-2.5 py-1 text-xs transition-colors", value === o.id ? "bg-panel-3 text-ink" : "text-ink-3 hover:text-ink-2")}>
@@ -315,7 +315,7 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
 
 export function CodeBlock({ code, className, maxHeight = "28rem" }: { code: string; className?: string; maxHeight?: string }) {
   return (
-    <pre className={cx("overflow-auto rounded-lg border border-line bg-[#080912] p-3.5 font-mono text-[12px] leading-relaxed text-ink-2", className)}
+    <pre className={cx("overflow-auto rounded-lg border border-line bg-[#161616] p-3.5 font-mono text-[12px] leading-relaxed text-ink-2", className)}
       style={{ maxHeight }}>
       {code}
     </pre>

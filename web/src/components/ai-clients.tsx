@@ -128,7 +128,7 @@ export function AiClientsSection() {
           <div className="space-y-4">
             <Banner tone="warn">Copy it now: OSMSEA stores only a hash, so this token is shown once.</Banner>
             <div className="flex items-center gap-2">
-              <code className="min-w-0 flex-1 truncate rounded-lg border border-line bg-[#080912] px-3 py-2 font-mono text-[12px] text-ink">{created.token}</code>
+              <code className="min-w-0 flex-1 truncate rounded-lg border border-line bg-[#161616] px-3 py-2 font-mono text-[12px] text-ink">{created.token}</code>
               <CopyButton text={created.token} />
             </div>
             <div>

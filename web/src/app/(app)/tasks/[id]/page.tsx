@@ -45,7 +45,7 @@ function StepRow({ step }: { step: Step }) {
   const [open, setOpen] = useState(false);
   const label = step.type === "tool" ? step.tool : step.type === "denied" ? `${step.tool} (denied)` : step.type === "submit" ? "submit_result" : "message";
   return (
-    <div className="rounded-md border border-line bg-[#0a0c16]">
+    <div className="rounded-md border border-line bg-[#161616]">
       <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px]">
         {open ? <ChevronDown className="size-3.5 text-ink-3" /> : <ChevronRight className="size-3.5 text-ink-3" />}
         <span className="text-ink-3 tabular">#{step.n}</span>
@@ -140,7 +140,7 @@ function VerificationView({ verification }: { verification: Verification | null 
               {c.output && (
                 <details className="mt-1.5">
                   <summary className="cursor-pointer text-[11px] text-ink-3 hover:text-ink-2">Sandbox output (exit code {c.exit_code}, offline, printed by the agent&apos;s code)</summary>
-                  <pre className="mt-1.5 max-h-72 overflow-auto rounded-md border border-line bg-[#080912] p-2.5 font-mono text-[11px] leading-relaxed text-ink-2">{c.output}</pre>
+                  <pre className="mt-1.5 max-h-72 overflow-auto rounded-md border border-line bg-[#161616] p-2.5 font-mono text-[11px] leading-relaxed text-ink-2">{c.output}</pre>
                 </details>
               )}
             </div>
@@ -339,7 +339,7 @@ export default function WorkflowPage() {
         <div className="grid gap-4 xl:grid-cols-[400px_minmax(0,1fr)]">
           <Card className="flex max-h-[calc(100vh-7rem)] flex-col xl:sticky xl:top-20">
             <div className="space-y-2.5 border-b border-line p-3">
-              <div className="flex h-9 items-center gap-2 rounded-lg border border-line-strong bg-[#090b14] px-3">
+              <div className="flex h-9 items-center gap-2 rounded-lg border border-line-strong bg-[#161616] px-3">
                 <Search className="size-4 text-ink-3" />
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search steps" className="flex-1 bg-transparent text-sm outline-none placeholder:text-ink-3" />
               </div>

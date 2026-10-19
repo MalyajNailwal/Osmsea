@@ -242,8 +242,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 return (
                   <Link key={item.href} href={item.href}
                     className={cx("group mb-0.5 flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm transition-colors",
-                      active ? "bg-accent-soft text-ink shadow-[inset_2px_0_0] shadow-accent" : "text-ink-2 hover:bg-white/[0.04] hover:text-ink")}>
-                    <Icon className={cx("size-[18px]", active ? "text-[#a99fff]" : "text-ink-3 group-hover:text-ink-2")} />
+                      active ? "bg-white/[0.07] text-ink" : "text-ink-2 hover:bg-white/[0.04] hover:text-ink")}>
+                    <Icon className={cx("size-[18px]", active ? "text-ink" : "text-ink-3 group-hover:text-ink-2")} />
                     <span className="flex-1">{item.label}</span>
                     {count > 0 && <span className="rounded-md bg-warn/15 px-1.5 text-[11px] font-semibold text-warn">{count}</span>}
                   </Link>
@@ -271,7 +271,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Link>
             <OrgSwitcher />
             <div className="flex items-center gap-2 pl-2">
-              <div className="grid size-8 place-items-center rounded-full bg-gradient-to-br from-accent to-accent-2 text-xs font-semibold uppercase">
+              <div className="grid size-8 place-items-center rounded-full bg-panel-3 text-xs font-semibold uppercase text-ink-2">
                 {email.slice(0, 1)}
               </div>
               <div className="hidden text-xs lg:block">

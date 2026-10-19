@@ -180,12 +180,12 @@ function ProviderCard({ provider: p, row, isAdmin, busy, now, onConfigure, onTes
       </div>
 
       <div className="mt-4 space-y-1.5">
-        <div className="flex items-center justify-between rounded-md bg-[#090b14] px-3 py-2 font-mono text-[12px]">
+        <div className="flex items-center justify-between rounded-md bg-[#161616] px-3 py-2 font-mono text-[12px]">
           <span className="text-ink-2">{p.secret_label}</span>
           {row ? <span className="flex items-center gap-1.5 text-ink-3">••••{row.secret_hint}<Check className="size-3.5 text-ok" /></span> : <span className="text-ink-3">—</span>}
         </div>
         {Object.entries(p.config_fields).map(([field, placeholder]) => (
-          <div key={field} className="flex items-center justify-between gap-3 rounded-md bg-[#090b14] px-3 py-2 font-mono text-[12px]">
+          <div key={field} className="flex items-center justify-between gap-3 rounded-md bg-[#161616] px-3 py-2 font-mono text-[12px]">
             <span className="shrink-0 text-ink-2">{field.toUpperCase()}</span>
             <span className={cx("truncate", cfg[field] ? "text-ink" : "text-ink-3")} title={cfg[field] || placeholder}>
               {cfg[field] || `default · ${placeholder}`}

@@ -322,7 +322,7 @@ export function SpecDiff({ before, after }: { before: string; after: string }) {
   return (
     <>
       <p className="mb-2 text-xs text-ink-3"><span className="text-ok">+{added}</span> / <span className="text-bad">−{removed}</span> lines</p>
-      <pre className="max-h-[60vh] overflow-auto rounded-lg border border-line bg-[#080912] py-2 font-mono text-[12px] leading-relaxed">
+      <pre className="max-h-[60vh] overflow-auto rounded-lg border border-line bg-[#161616] py-2 font-mono text-[12px] leading-relaxed">
         {lines.map((l, i) => (
           <div key={i} className={cx("px-3", l.kind === "add" && "bg-ok/10 text-ok", l.kind === "del" && "bg-bad/10 text-bad", l.kind === "same" && "text-ink-3")}>
             {l.kind === "add" ? "+ " : l.kind === "del" ? "− " : "  "}{l.text || " "}

@@ -93,7 +93,7 @@ function buildView(data: Awaited<ReturnType<typeof loadMap>>, now: number, orgNa
     type: "default", animated: true, selectable: false,
     style: { stroke: "#7c6cff", strokeWidth: 2 }, markerEnd: { type: MarkerType.ArrowClosed, color: "#7c6cff" },
     label: `${p.count} handoff${p.count === 1 ? "" : "s"}`,
-    labelStyle: { fill: "#c3bbff", fontSize: 11 }, labelBgStyle: { fill: "#0d0f1a" }, labelBgPadding: [6, 3] as [number, number], labelBgBorderRadius: 6,
+    labelStyle: { fill: "#c3bbff", fontSize: 11 }, labelBgStyle: { fill: "#1f1f1f" }, labelBgPadding: [6, 3] as [number, number], labelBgBorderRadius: 6,
   }));
   return { nodes, groups, agentInfo, hierarchy: hierarchyEdges(groups), handoffEdges };
 }

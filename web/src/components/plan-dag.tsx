@@ -23,7 +23,7 @@ function StepNode({ data }: NodeProps<Node<StepData>>) {
   const { task, index, selected } = data;
   const active = task.status === "running" || task.status === "verifying";
   return (
-    <div className={cx("w-[210px] overflow-hidden rounded-lg border bg-[#11131f] text-left shadow-lg transition-shadow",
+    <div className={cx("w-[210px] overflow-hidden rounded-lg border bg-[#232323] text-left shadow-lg transition-shadow",
       BORDER[task.status] ?? "border-line-strong", selected && "ring-2 ring-accent/70", active && "glow-accent")}>
       <Handle type="target" position={Position.Left} className="!size-2 !border-0 !bg-ink-3" />
       <div className={cx("flex items-center justify-between px-2.5 py-1 text-[10.5px] font-medium", HEADER[task.status] ?? "bg-white/5 text-ink-2")}>
@@ -79,7 +79,7 @@ export function PlanDag({ tasks, selectedId, onSelect, height = 300 }: {
     const edges: Edge[] = tasks.flatMap((t) => t.depends_on.filter((d) => status.has(d)).map((d) => ({
       id: `${d}-${t.id}`, source: d, target: t.id, type: "smoothstep",
       animated: t.status === "running" || t.status === "verifying" || t.status === "queued",
-      markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: "#6d7392" },
+      markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: "#808080" },
       style: { stroke: status.get(d) === "completed" ? "rgba(52,211,153,0.55)" : status.get(d) === "failed" ? "rgba(248,113,113,0.6)" : "rgba(165,171,196,0.4)" },
     })));
     return { nodes, edges };

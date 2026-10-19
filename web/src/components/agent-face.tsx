@@ -8,14 +8,16 @@ export const PERSONA_HEX: Record<string, string> = {
 
 export const personaHex = (color: string | null | undefined) => PERSONA_HEX[color ?? ""] ?? PERSONA_HEX.gray;
 
-/** An agent's face: a persona-coloured circle with two eyes. */
+/** An agent's face: a persona-coloured circle with two tall, slightly tilted eyes. */
 export function AgentFace({ color, size = 36, className, title }: { color?: string | null; size?: number; className?: string; title?: string }) {
-  const eye = Math.max(3, Math.round(size * 0.11));
+  const eye = { width: Math.max(2, size * 0.1), height: Math.max(4, size * 0.27) };
   return (
     <span title={title} aria-hidden={!title} className={cx("inline-flex shrink-0 items-center justify-center rounded-full", className)}
-      style={{ width: size, height: size, background: personaHex(color), gap: eye * 0.9 }}>
-      <span className="rounded-full bg-[#0b0d14]" style={{ width: eye, height: eye * 1.7 }} />
-      <span className="rounded-full bg-[#0b0d14]" style={{ width: eye, height: eye * 1.7 }} />
+      style={{ width: size, height: size, background: personaHex(color) }}>
+      <span className="flex" style={{ gap: size * 0.13, transform: `translate(${size * 0.04}px, ${-size * 0.06}px) rotate(12deg)` }}>
+        <span className="rounded-full bg-[#161616]" style={eye} />
+        <span className="rounded-full bg-[#161616]" style={eye} />
+      </span>
     </span>
   );
 }
@@ -24,7 +26,7 @@ export function AgentFace({ color, size = 36, className, title }: { color?: stri
 export function PersonFace({ label, size = 36 }: { label: string; size?: number }) {
   const initials = label.replace(/@.*/, "").split(/[\s._-]+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "?";
   return (
-    <span className="inline-flex shrink-0 items-center justify-center rounded-full bg-[#262833] font-semibold text-ink-2"
+    <span className="inline-flex shrink-0 items-center justify-center rounded-full bg-[#333333] font-semibold text-ink-2"
       style={{ width: size, height: size, fontSize: size * 0.36 }}>
       {initials}
     </span>

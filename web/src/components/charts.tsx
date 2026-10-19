@@ -24,7 +24,7 @@ type Tip = { x: number; y: number; lines: string[] } | null;
 function Tooltip({ tip }: { tip: Tip }) {
   if (!tip) return null;
   return (
-    <div className="pointer-events-none absolute z-10 rounded-lg border border-line-strong bg-[#0b0d17]/95 px-2.5 py-1.5 text-[11px] shadow-xl"
+    <div className="pointer-events-none absolute z-10 rounded-lg border border-line-strong bg-[#161616]/95 px-2.5 py-1.5 text-[11px] shadow-xl"
       style={{ left: tip.x + 12, top: tip.y + 12 }}>
       {tip.lines.map((l, i) => <div key={i} className={i === 0 ? "font-medium text-ink" : "text-ink-2"}>{l}</div>)}
     </div>

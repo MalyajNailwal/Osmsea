@@ -22,7 +22,7 @@ export const KIND_SHAPE: Record<string, Shape> = {
 };
 export const SOURCE_COLOR = "#898781";
 export const AGENT_COLOR = "#9085e9";
-const SURFACE = "#080912";
+const SURFACE = "#161616";
 
 export function shapePath(shape: Shape, r: number): string {
   switch (shape) {
@@ -257,7 +257,7 @@ export function MemoryGraph({ nodes, edges, selectedId, onSelect, showLabels, fi
         </g>
       </svg>
       {hovered && (
-        <div className="pointer-events-none absolute z-10 max-w-72 rounded-lg border border-line-strong bg-[#0b0d17]/95 px-2.5 py-1.5 text-[11px] shadow-xl"
+        <div className="pointer-events-none absolute z-10 max-w-72 rounded-lg border border-line-strong bg-[#161616]/95 px-2.5 py-1.5 text-[11px] shadow-xl"
           style={{ left: Math.min((hovered.x ?? 0) * view.k + view.x + 14, Math.max(width - 290, 0)), top: (hovered.y ?? 0) * view.k + view.y + 14 }}>
           <div className="font-medium text-ink">{hovered.label}</div>
           <div className="text-ink-3">

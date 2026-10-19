@@ -49,7 +49,7 @@ function StatusPill({ status }: { status: NodeStatus }) {
 
 function OrgNode({ data, selected }: NodeProps<Node<OrgNodeData, "org">>) {
   return (
-    <div className={cx("w-[250px] rounded-xl border bg-[#0f1222] px-3.5 py-3 shadow-lg transition-colors",
+    <div className={cx("w-[250px] rounded-xl border bg-[#222222] px-3.5 py-3 shadow-lg transition-colors",
       selected ? "border-accent glow-accent" : "border-line-strong")}>
       <div className="flex items-center gap-3">
         <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-accent to-accent-2 text-white"><Building2 className="size-[18px]" /></div>
@@ -66,7 +66,7 @@ function OrgNode({ data, selected }: NodeProps<Node<OrgNodeData, "org">>) {
 function DeptNode({ data, selected }: NodeProps<Node<DeptNodeData, "dept">>) {
   return (
     <div className="w-[240px]">
-      <div className={cx("rounded-xl border bg-[#0d1020] px-3 py-2.5 shadow-lg transition-colors",
+      <div className={cx("rounded-xl border bg-[#1f1f1f] px-3 py-2.5 shadow-lg transition-colors",
         selected ? "border-accent glow-accent" : "border-line-strong")}>
         <div className="flex items-center gap-3">
           <div className="grid size-8 shrink-0 place-items-center rounded-lg text-white" style={{ background: tile(data.color) }}><FolderTree className="size-4" /></div>
@@ -89,7 +89,7 @@ function DeptNode({ data, selected }: NodeProps<Node<DeptNodeData, "dept">>) {
 function AgentNode({ data, selected }: NodeProps<Node<AgentNodeData, "agent">>) {
   return (
     <div className="w-[260px]">
-      <div className={cx("rounded-xl border bg-[#0d1020] px-3 py-2.5 shadow-lg transition-colors",
+      <div className={cx("rounded-xl border bg-[#1f1f1f] px-3 py-2.5 shadow-lg transition-colors",
         selected ? "border-accent glow-accent" : "border-line-strong")}>
         <div className="flex items-center gap-3">
           <div className="grid size-8 shrink-0 place-items-center rounded-lg text-white" style={{ background: tile(data.color) }}><Bot className="size-4" /></div>

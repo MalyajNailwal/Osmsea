@@ -225,7 +225,7 @@ export default function AutomationsPage() {
             <Banner tone="warn">Copy the secret now: OSMSEA stores only a hash, so it is shown once.</Banner>
             <Field label="Secret">
               <div className="flex items-center gap-2">
-                <code className="min-w-0 flex-1 truncate rounded-lg border border-line bg-[#080912] px-3 py-2 font-mono text-[12px] text-ink">{created.secret}</code>
+                <code className="min-w-0 flex-1 truncate rounded-lg border border-line bg-[#161616] px-3 py-2 font-mono text-[12px] text-ink">{created.secret}</code>
                 <CopyButton text={created.secret} />
               </div>
             </Field>
