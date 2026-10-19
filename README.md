@@ -44,10 +44,14 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design,
 
 All screens show live data from Supabase. These captures come from real runs against a free
 OpenRouter model. The failed tasks are verification rejections (a reviewer model or deterministic check
-refused the output), which is the point: nothing is marked complete on the model's word.
+refused the output), which is the point: nothing is marked complete on the model's word. In the Spaces
+captures the fares were typed into the chat as the person's own quotes; the agents' arithmetic, the
+consultation and the airport answer (fetched from aai.aero after approval) are real model output.
 
 | | |
 |---|---|
+| <img src="docs/screenshots/spaces.png" alt="Spaces"><br>**Spaces**: people and agents in one chat; Trip Planner consults Budget Keeper | <img src="docs/screenshots/spaces-approval.png" alt="Inline approval"><br>**Inline approval**: an agent asks before using a gated tool, then answers from the source |
+| <img src="docs/screenshots/persona-library.png" alt="Persona library"><br>**Persona library**: ready-made agents with their own voice, or describe your own | <img src="docs/screenshots/knowledge-base.png" alt="Knowledge base"><br>**Knowledge base**: your documents as citable passages |
 | <img src="docs/screenshots/execution-viewer.png" alt="Execution viewer"><br>**Execution viewer**: plan DAG, attempts, tool calls, verification | <img src="docs/screenshots/org-builder.png" alt="Organization Builder"><br>**Organization Builder**: canvas plus spec inspector |
 | <img src="docs/screenshots/agent-permissions.png" alt="Agent permissions"><br>**Agent permissions**: spec ∩ policy ∩ integrations | <img src="docs/screenshots/org-map.png" alt="Organization Map"><br>**Organization Map**: hierarchy and recorded hand-offs |
 | <img src="docs/screenshots/shared-memory.png" alt="Shared memory"><br>**Shared memory**: verified findings with provenance | <img src="docs/screenshots/integrations.png" alt="Integrations"><br>**Integrations**: credentials in Supabase Vault |
@@ -146,6 +150,18 @@ Docker (Docker Desktop, OrbStack or Colima) for agents whose tests are executed.
 - **Members.** Admins create invite links that are single-use, expire after 7 days and work only for the
   invited, confirmed email. Admins can also change roles and remove members, and anyone can leave. The
   owner's membership is protected.
+- **Spaces: chat with your agents.** Group conversations where people and agents work together:
+  - **Personas.** Each agent has its own face colour, tagline and speaking voice.
+  - **Persona library.** Eight ready-made agents: Trip Planner, Budget Keeper, Content Writer, Market Scout,
+    Support Agent, Meeting Scribe, Code Reviewer and Data Analyst.
+  - **Your own agents.** Describe your use case and get a drafted agent to review, or start from a library
+    persona.
+  - **Conversation.** Agents answer when mentioned ("Trip Planner, …" or `@trip-planner`) and consult each
+    other in visible collaboration threads.
+  - **Approvals.** A tool that needs approval pauses the turn behind an inline Allow/Deny card, and the
+    turn resumes once an admin decides.
+  - **Verified work.** Bigger jobs are handed to verified workflows, which post their results back into
+    the space.
 - **Knowledge base.** Upload PDFs, Markdown, text, HTML, CSV or code, or save a web page. OSMSEA splits
   each document into passages and indexes them for full-text search (PDF passages keep their page
   numbers). Agents find passages with `knowledge_search` and cite them as `doc:<document>/<passage>`.
@@ -170,7 +186,7 @@ other than Python · a separate worker process (the scheduler runs in the API pr
 
 ```bash
 cd backend
-uv run pytest -q                                          # 84 tests: scripted model, in-memory store, in-process MCP and fake GitHub servers, real sandbox if Docker is up
+uv run pytest -q                                          # 89 tests: scripted model, in-memory store, in-process MCP and fake GitHub servers, real sandbox if Docker is up
 OSMSEA_LIVE=1 uv run pytest tests/test_live_supabase.py   # real Supabase: persistence, RLS isolation, Vault
 OSMSEA_LIVE_MCP=1 uv run pytest tests/test_mcp.py        # real public MCP server (DeepWiki)
 cd ../web && pnpm exec tsc --noEmit && pnpm lint && pnpm build

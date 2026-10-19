@@ -41,6 +41,7 @@ Client roles have no INSERT/UPDATE/DELETE privileges at all.
 | `mcp_server.py` | OSMSEA's own MCP server at `/mcp`: token auth, `list_agents`, `submit_goal`, `get_workflow`, `search_memory` |
 | `automation.py` | Organization API tokens; schedule and webhook triggers; firing with pile-up protection |
 | `members.py` | Invitation links (single-use, expiring, bound to a confirmed email), role changes, leaving |
+| `chat.py` | Spaces: mention routing, persona-driven agent turns, consult threads, approval pause/resume, delegation, persona library |
 | `knowledge.py` | Document upload and URL import, text extraction (pypdf for PDFs), page-aware passage chunking, search |
 | `actions.py` / `github.py` | Approval-gated deliveries built from verified output; draft pull requests through the GitHub REST API |
 | `orgs.py` | Organization, department, agent-version, settings, integration and memory configuration, with audit |
@@ -63,6 +64,11 @@ tool results (`tool_recordings`) and its model-routing decision (`routing`).
 Automation: `api_tokens` (SHA-256 of the token, prefix, creator, last use, revocation) and `triggers`
 (schedule interval and next run, or a hashed webhook secret; approval policy; last run). Workflows record
 the `trigger_id`, a `force_approval` flag and the untrusted event `context`.
+
+Spaces: `spaces` (name, description, primary agent), `space_agents`, `space_messages` (author, kind
+`text|collaboration|approval|workflow`, status, `thread_id` for collaboration threads, `data`) and
+`space_reads` (per-user read markers for unread badges). `workflows.space_id` links delegated work back.
+Agent personas (`tagline`, `voice`, `color`) live in the spec frontmatter.
 
 Knowledge and deliveries: `documents` (title, source, hash for deduplication, page and passage counts),
 `document_chunks` (page, heading, passage text, generated `tsvector`, GIN index, searched by the
@@ -144,6 +150,11 @@ corresponding total `null`: the UI shows "unknown", never an invented number.
   organization and acting as its creator with member rights. It stops working when revoked or when the
   creator leaves the org. Clients can submit and read but cannot approve, edit or read credentials.
   At most 10 active workflows per org can be started this way.
+- Spaces: an agent turn uses the same effective tools as workflows. A tool that requires approval posts
+  an Allow/Deny card instead of running. The paused transcript is stored on the card, and only an admin's
+  decision resumes the turn. Consulted agents run with read-only tools, without approvals, and cannot
+  consult again. Other agents' replies and tool output reach the model fenced as untrusted data.
+  Delegated workflows keep their own planning, approval and verification.
 - Deliveries: an action is created by trusted code only after verification passes. At approval it
   re-reads the task's verified output rather than any model-supplied arguments, runs once (pending→running
   compare-and-swap), refuses `.github/` paths, and opens a *draft* pull request on a new branch. The token
@@ -199,6 +210,8 @@ corresponding total `null`: the UI shows "unknown", never an invented number.
 | Forecasts treat attempts as independent and use small samples as-is | Bayesian smoothing with a prior per agent, and confidence intervals |
 | Replays restart an attempt from the beginning (with recorded tools) rather than resuming at step N | Persist full model transcripts per step, if mid-run resume is needed |
 | Invitation links rely on Supabase email confirmation being on to prove email ownership | Keep "Confirm email" enabled in Supabase Auth (required for production) |
+| Spaces are visible to every member of the organization | Private spaces with per-space membership |
+| Agents answer only when mentioned (or as the primary agent), not when they decide a message concerns them | A cheap relevance check per message, if wanted |
 | Document search is lexical (Postgres full-text), not semantic | Add pgvector embeddings next to the `tsvector`, and hybrid ranking |
 | Scanned PDFs have no text layer and are rejected | OCR (e.g. Tesseract) before chunking |
 | GitHub delivery targets github.com and one configured repository per org | Per-agent or per-goal repositories; GitHub Enterprise base URL; GitHub App auth instead of a token |
