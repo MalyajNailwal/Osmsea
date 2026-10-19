@@ -1,15 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" role="img" aria-label="OSMSEA — AI agent organizations, planned, approved and verified">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0d0f1f"/>
-      <stop offset="1" stop-color="#06070d"/>
+      <stop offset="0" stop-color="#222222"/>
+      <stop offset="1" stop-color="#141414"/>
     </linearGradient>
     <radialGradient id="glow" cx="0.22" cy="0.15" r="0.75">
-      <stop offset="0" stop-color="#7c6cff" stop-opacity="0.38"/>
+      <stop offset="0" stop-color="#7c6cff" stop-opacity="0.22"/>
       <stop offset="1" stop-color="#7c6cff" stop-opacity="0"/>
     </radialGradient>
     <radialGradient id="glow2" cx="0.95" cy="1" r="0.6">
-      <stop offset="0" stop-color="#4f7cff" stop-opacity="0.22"/>
+      <stop offset="0" stop-color="#4f7cff" stop-opacity="0.12"/>
       <stop offset="1" stop-color="#4f7cff" stop-opacity="0"/>
     </radialGradient>
     <linearGradient id="mark" x1="0" y1="0" x2="1" y2="1">
@@ -38,8 +38,8 @@
   </g>
 
   <g font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
-    <text x="330" y="140" font-size="76" font-weight="700" fill="#eef0f7" letter-spacing="3">OSMSEA</text>
-    <text x="333" y="186" font-size="25" fill="#a5abc4">AI agent organizations — planned, approved, verified.</text>
+    <text x="330" y="140" font-size="76" font-weight="700" fill="#ededed" letter-spacing="3">OSMSEA</text>
+    <text x="333" y="186" font-size="25" fill="#a8a8a8">AI agent organizations — planned, approved, verified.</text>
     <g font-size="15" font-weight="600">
       <rect x="333" y="214" width="150" height="32" rx="8" fill="#7c6cff" fill-opacity="0.16" stroke="#7c6cff" stroke-opacity="0.45"/>
       <text x="408" y="235" text-anchor="middle" fill="#c4bcff">Markdown specs</text>
@@ -48,7 +48,7 @@
       <rect x="653" y="214" width="170" height="32" rx="8" fill="#34d399" fill-opacity="0.12" stroke="#34d399" stroke-opacity="0.4"/>
       <text x="738" y="235" text-anchor="middle" fill="#7ee2bd">Verified results</text>
       <rect x="835" y="214" width="178" height="32" rx="8" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.15"/>
-      <text x="924" y="235" text-anchor="middle" fill="#c9cde0">Supabase + Next.js</text>
+      <text x="924" y="235" text-anchor="middle" fill="#d4d4d4">Supabase + Next.js</text>
     </g>
   </g>
 </svg>
