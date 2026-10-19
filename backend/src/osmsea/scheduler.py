@@ -490,7 +490,7 @@ class Worker:
                 await record_event(self.db, w["org_id"], "planning_failed", msg, level="error", workflow_id=w["id"])
         for m in await self.db.select("space_messages", filters={"status": "thinking", "created_at": ("lt", cutoff)}):
             if not self.evals:  # ponytail: no per-message tracking; with no jobs running, any "thinking" bubble is stale
-                await self.db.update("space_messages", {"status": "failed", "content": "Interrupted by a server restart. Ask again."},
+                await self.db.update("space_messages", {"status": "failed", "content": "This reply was interrupted (lost connection or server restart). Ask again."},
                                      filters={"id": m["id"], "status": "thinking"})
         for table in ("eval_runs", "replays"):
             for r in await self.db.select(table, filters={"status": ("in", ["queued", "running"]), "created_at": ("lt", cutoff)}):

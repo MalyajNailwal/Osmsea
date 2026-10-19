@@ -7,7 +7,7 @@
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-runtime-009688?logo=fastapi&logoColor=white">
   <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-RLS%20%2B%20Vault-3ECF8E?logo=supabase&logoColor=white">
-  <img alt="Tests" src="https://img.shields.io/badge/backend%20tests-69%20passing-34d399">
+  <img alt="Tests" src="https://img.shields.io/badge/backend%20tests-90%20passing-34d399">
   <img alt="Status: in development" src="https://img.shields.io/badge/status-in%20development-f59e0b">
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-7c6cff">
 </p>
@@ -21,20 +21,38 @@
 
 # OSMSEA
 
-An AI agent organization platform. You define an organization of specialized agents in Markdown,
-submit a goal, review the plan the runtime proposes, approve it, and watch agents execute tasks.
-A task is marked complete only after verification passes, not because a model says it succeeded.
+An AI agent organization platform. Build a team of specialized agents, chat with them, hand them goals,
+and approve what they plan. Every result is checked before it counts: a task is complete only when
+verification passes, never because a model says it succeeded.
 
 <p align="center">
-  <img src="docs/screenshots/command-center.png" alt="Command Center" width="100%">
+  <img src="docs/assets/spaces-demo.gif" alt="A live chat in Spaces: Trip Planner consults Budget Keeper, then answers with the maths" width="100%">
+  <br><sub>A real conversation, recorded live: Trip Planner asks Budget Keeper, then answers with the working.</sub>
 </p>
+
+## Highlights
+
+- **Chat with your agents.** In Spaces, people and agents talk in one place. Each agent has its own
+  persona. Agents consult each other in visible threads and ask before using sensitive tools.
+- **Nothing is done on the model's word.** Every output is verified with schema checks, cited evidence,
+  tests run in an offline sandbox, and an independent reviewer.
+- **Plans before work.** A goal becomes a plan with a cost and success forecast. An admin approves it,
+  and tasks run with retries, timeouts and budgets.
+- **Agents that improve.** Verified runs become regression tests. Agents propose fixes to their own
+  specs, and auto-routing picks the cheapest model that passes.
+- **Your knowledge, real actions.** Agents cite passages from your own documents and deliver tested
+  code as a draft GitHub pull request once you approve.
+- **Connect anything.** Use MCP servers as tools, expose OSMSEA itself as an MCP server for Claude Code
+  or Cursor, and run goals on schedules or from webhooks.
+- **Built for teams.** Supabase row-level security, Vault-encrypted credentials, roles, invitations and
+  a full audit log.
 
 | Layer | Technology | Responsibility |
 |-------|------------|----------------|
 | Specifications | Markdown + YAML frontmatter (`organization/`) | Human-readable agent instructions and org docs, validated by Pydantic |
 | Runtime | Python 3.12, FastAPI, Pydantic, httpx (`backend/`) | Planning, scheduling, tool execution, verification, authorization |
 | State | Supabase Postgres + Auth + Realtime + Vault (`supabase/migrations/`) | Persistence, RLS tenant isolation, live updates, encrypted credentials |
-| UI | Next.js 16, React 19, Tailwind 4, React Flow (`web/`) | Command Center, Builder, Org Map, Agents, Tasks, Memory, Integrations, Governance |
+| UI | Next.js 16, React 19, Tailwind 4, React Flow (`web/`) | Spaces, Command Center, Builder, Org Map, Agents, Tasks, Memory, Knowledge, Automations, Integrations, Governance |
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design,
 [organization/workflows/README.md](organization/workflows/README.md) for the workflow lifecycle, and
@@ -42,20 +60,26 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design,
 
 ## Screens
 
-All screens show live data from Supabase. These captures come from real runs against a free
-OpenRouter model. The failed tasks are verification rejections (a reviewer model or deterministic check
-refused the output), which is the point: nothing is marked complete on the model's word. In the Spaces
-captures the fares were typed into the chat as the person's own quotes; the agents' arithmetic, the
-consultation and the airport answer (fetched from aai.aero after approval) are real model output.
+Real runs against a free OpenRouter model, on live Supabase data. Failed tasks are verification rejections,
+by design. In the Spaces captures, the fares were typed into the chat as the person's own quotes;
+everything the agents did with them is real model output.
 
 | | |
 |---|---|
-| <img src="docs/screenshots/spaces.png" alt="Spaces"><br>**Spaces**: people and agents in one chat; Trip Planner consults Budget Keeper | <img src="docs/screenshots/spaces-approval.png" alt="Inline approval"><br>**Inline approval**: an agent asks before using a gated tool, then answers from the source |
-| <img src="docs/screenshots/persona-library.png" alt="Persona library"><br>**Persona library**: ready-made agents with their own voice, or describe your own | <img src="docs/screenshots/knowledge-base.png" alt="Knowledge base"><br>**Knowledge base**: your documents as citable passages |
-| <img src="docs/screenshots/execution-viewer.png" alt="Execution viewer"><br>**Execution viewer**: plan DAG, attempts, tool calls, verification | <img src="docs/screenshots/org-builder.png" alt="Organization Builder"><br>**Organization Builder**: canvas plus spec inspector |
+| <img src="docs/screenshots/spaces-approval.png" alt="Inline approval"><br>**Inline approval**: an agent asks before using a gated tool, then answers from the source | <img src="docs/screenshots/execution-viewer.png" alt="Execution viewer"><br>**Execution viewer**: plan, attempts, tool calls and verification |
+| <img src="docs/screenshots/persona-library.png" alt="Persona library"><br>**Persona library**: ready-made agents, or describe your own | <img src="docs/screenshots/knowledge-base.png" alt="Knowledge base"><br>**Knowledge base**: your documents as citable passages |
+
+<details>
+<summary><b>More screens</b> (Command Center, Builder, permissions, Org Map, memory, integrations, governance, MCP)</summary>
+
+| | |
+|---|---|
+| <img src="docs/screenshots/command-center.png" alt="Command Center"><br>**Command Center**: live runs, approvals and usage | <img src="docs/screenshots/org-builder.png" alt="Organization Builder"><br>**Organization Builder**: canvas plus spec inspector |
 | <img src="docs/screenshots/agent-permissions.png" alt="Agent permissions"><br>**Agent permissions**: spec ∩ policy ∩ integrations | <img src="docs/screenshots/org-map.png" alt="Organization Map"><br>**Organization Map**: hierarchy and recorded hand-offs |
 | <img src="docs/screenshots/shared-memory.png" alt="Shared memory"><br>**Shared memory**: verified findings with provenance | <img src="docs/screenshots/integrations.png" alt="Integrations"><br>**Integrations**: credentials in Supabase Vault |
 | <img src="docs/screenshots/governance.png" alt="Governance"><br>**Governance**: audit log, limits, tool policy | <img src="docs/screenshots/mcp-servers.png" alt="MCP servers"><br>**MCP servers**: discovered tools, per-tool approval |
+
+</details>
 
 ## Quick start
 
@@ -94,85 +118,7 @@ Docker (Docker Desktop, OrbStack or Colima) for agents whose tests are executed.
 
 ## What works today
 
-- Agent specs in Markdown with strict validation: unknown tools, unknown output schemas, duplicate ids,
-  mismatched departments, path escapes and typos in field names are all rejected.
-- Organizations from the template or from a natural-language goal (Builder), with editing of departments
-  and agents. Each agent edit creates a new validated, versioned spec; running tasks keep their pinned version.
-- Goal → structured plan (objective, criteria, tasks, agents, dependencies). Python validates the plan:
-  cycles, unknown agents and dangling dependencies are rejected. The backend computes permissions and the
-  approval requirement.
-- Approval gate. Scheduler: dependency-aware, per-org concurrency, lease-based claims, bounded retries with
-  feedback, timeouts, token budgets, cancellation, restart recovery.
-- Agent execution with an allow-listed tool set: `fetch_url` (SSRF-guarded, DNS-pinned), `web_search`
-  (Tavily or Brave key required), `memory_search`. Unauthorized tool calls are denied and audited.
-- **MCP server integration.** Register remote MCP servers (Streamable HTTP, optional credential kept in Vault).
-  OSMSEA discovers their tools, and an admin approves individual tools, which agents request as
-  `mcp__<server>__<tool>`. Arguments are validated against the tool's schema, output is treated as
-  untrusted, every call is audited, and plans using MCP tools need approval by default.
-- Verification: schema validation; cited sources must have been retrieved during the same execution;
-  minimum sources; Python/JSON/TOML/YAML parse checks; an independent reviewer model judges the
-  acceptance criteria. Artifacts and verified findings are stored with provenance.
-- **Self-improving agents** (agent → Improve tab):
-  - **Evaluation cases ("CI for agents").** Every attempt that reaches verification is frozen as a
-    regression case, together with the full results of its tool calls.
-  - **Replayed evaluations.** An evaluation replays those cases against a spec or model. Recorded tool
-    calls are answered from the recording, MCP tools never run live, and real tasks are never touched.
-    Results are compared with the recorded baseline.
-  - **Activation gate (optional).** A new agent version goes live only after an evaluation of that exact
-    spec passes at least as many cases as before.
-  - **Improvement proposals.** A model drafts a revised spec from the agent's failure patterns: failed
-    checks and the criteria the reviewer marked unmet. The backend rejects any proposal that adds tools,
-    disables a verification check or changes the agent's identity. Each proposal is evaluated, then an
-    admin accepts or rejects it.
-  - **Cost-aware model routing (optional).** For each agent, OSMSEA tracks pass rate and cost per
-    verified task for each model, from real runs and evaluations. Auto-routing picks the cheapest model
-    that meets the org's quality bar. A model pinned in a spec always wins, and every execution records
-    why its model was chosen.
-- **Tests that actually run.** Agents with `verification.run_tests` (the template developer) must ship pytest
-  tests and a `test_command`. Verification runs them in a locked-down Docker container: no network, read-only
-  root filesystem, unprivileged user, no capabilities, and memory, CPU, process and time limits. Files go in
-  as a tar stream and nothing from the host is mounted. A failing test fails the task, and its output becomes
-  the feedback for the next attempt. The reviewer sees the trusted exit code.
-- **OSMSEA as an MCP server.** Claude Code, Cursor, Claude Desktop or any MCP client can connect to `/mcp`
-  with an organization API token. It exposes `list_agents`, `submit_goal`, `get_workflow` (with waiting)
-  and `search_memory`. Clients cannot approve plans: plans that need approval wait for a human in the UI.
-  Tokens are stored hashed, shown once, revocable and audited.
-- **Automations.** Goals can run on a schedule (every 15 minutes to every year) or from a webhook, with the
-  secret in a Bearer header or `?token=`. Webhook payloads reach the planner only as untrusted data. Plans
-  from automations need approval by default, and a run is skipped while the previous one is still active.
-- **Forecasts before approval.** Every plan comes with an expected chance of success, cost (retries
-  included) and duration (critical path). Each task's figures come from that agent's verified history on
-  the model it will use. Tasks with no history stay unknown rather than guessed. After the run, the
-  forecast is shown next to the actual results.
-- **Replay & fork.** Any past attempt can be re-run with an edited spec or another model. Recorded tool
-  results answer the same calls, verification runs exactly as in production, and nothing real is touched.
-  Original and replay are compared side by side: checks, output, steps and spec diff.
-- **Members.** Admins create invite links that are single-use, expire after 7 days and work only for the
-  invited, confirmed email. Admins can also change roles and remove members, and anyone can leave. The
-  owner's membership is protected.
-- **Spaces: chat with your agents.** Group conversations where people and agents work together:
-  - **Personas.** Each agent has its own face colour, tagline and speaking voice.
-  - **Persona library.** Eight ready-made agents: Trip Planner, Budget Keeper, Content Writer, Market Scout,
-    Support Agent, Meeting Scribe, Code Reviewer and Data Analyst.
-  - **Your own agents.** Describe your use case and get a drafted agent to review, or start from a library
-    persona.
-  - **Conversation.** Agents answer when mentioned ("Trip Planner, …" or `@trip-planner`) and consult each
-    other in visible collaboration threads.
-  - **Approvals.** A tool that needs approval pauses the turn behind an inline Allow/Deny card, and the
-    turn resumes once an admin decides.
-  - **Verified work.** Bigger jobs are handed to verified workflows, which post their results back into
-    the space.
-- **Knowledge base.** Upload PDFs, Markdown, text, HTML, CSV or code, or save a web page. OSMSEA splits
-  each document into passages and indexes them for full-text search (PDF passages keep their page
-  numbers). Agents find passages with `knowledge_search` and cite them as `doc:<document>/<passage>`.
-  The citation check accepts only passages the agent actually retrieved in that run.
-- **Deliveries with approval (GitHub pull requests).** When a developer task passes verification
-  (including its sandboxed tests), OSMSEA proposes a draft pull request built from the verified files.
-  It is built by OSMSEA itself, not from model-chosen arguments. Nothing touches GitHub until an admin
-  approves, and the PR body lists the verification results. Changes under `.github/` (CI workflows) are
-  never delivered. Uses a fine-grained token limited to one repository.
-- Live UI over real data through Supabase Realtime. Audit log of configuration changes, approvals and
-  security denials.
+The full, detailed feature list is in [docs/FEATURES.md](docs/FEATURES.md).
 
 ## Not implemented yet
 
@@ -186,7 +132,7 @@ other than Python · a separate worker process (the scheduler runs in the API pr
 
 ```bash
 cd backend
-uv run pytest -q                                          # 89 tests: scripted model, in-memory store, in-process MCP and fake GitHub servers, real sandbox if Docker is up
+uv run pytest -q                                          # 90 tests: scripted model, in-memory store, in-process MCP and fake GitHub servers, real sandbox if Docker is up
 OSMSEA_LIVE=1 uv run pytest tests/test_live_supabase.py   # real Supabase: persistence, RLS isolation, Vault
 OSMSEA_LIVE_MCP=1 uv run pytest tests/test_mcp.py        # real public MCP server (DeepWiki)
 cd ../web && pnpm exec tsc --noEmit && pnpm lint && pnpm build
