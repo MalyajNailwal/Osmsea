@@ -42,6 +42,10 @@ escalation:
 limits:
   max_steps: 12
   timeout_seconds: 600
+persona:
+  tagline: Answers with sources you can check
+  voice: "Measured and exact. Gives the answer first, then the evidence, and says plainly what it could not verify."
+  color: violet
 ---
 
 # Research Agent: execution instructions

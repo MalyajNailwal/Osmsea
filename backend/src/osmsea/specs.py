@@ -48,6 +48,16 @@ class VerificationSpec(_Strict):
     independent_review: bool = True  # separate model call judges output against acceptance criteria
 
 
+PERSONA_COLORS = ("blue", "green", "yellow", "orange", "red", "pink", "violet", "teal", "gray")
+
+
+class PersonaSpec(_Strict):
+    """How the agent presents itself in Spaces: a face colour, a one-line tagline and a speaking voice."""
+    tagline: str = Field("", max_length=120)
+    voice: str = Field("", max_length=600)  # tone and style, e.g. "Warm, brief, always gives two options"
+    color: Literal[PERSONA_COLORS] = "blue"  # type: ignore[valid-type]
+
+
 class EscalationSpec(_Strict):
     max_attempts: int = Field(2, ge=1, le=5)
     on_failure: str = Field(min_length=1, max_length=1000)
@@ -77,6 +87,7 @@ class AgentSpec(_Strict):
     limits: LimitsSpec = LimitsSpec()
     model: str | None = Field(None, max_length=120)
     actions: list[Literal["github_pull_request"]] = Field(default_factory=list, max_length=5)  # approval-gated deliveries
+    persona: PersonaSpec | None = None
     instructions: str = Field(min_length=1, max_length=20_000)  # Markdown body of the spec file
 
     @field_validator("allowed_tools")

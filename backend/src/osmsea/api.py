@@ -20,9 +20,9 @@ from fastapi.responses import JSONResponse
 from starlette.routing import Route
 from pydantic import BaseModel, Field
 
-from . import actions, automation, improve, knowledge, mcp_server, members, orgs, sandbox
+from . import actions, automation, chat, improve, knowledge, mcp_server, members, orgs, sandbox
 from .auth import Authenticator, User, member_role, role_allows
-from .builder import propose_organization
+from .builder import draft_agent, propose_organization
 from .config import Config
 from .evals import choose_model, create_eval_run, create_replay, model_stats
 from .integrations import ProviderNotConfigured, catalog, llm_provider_for_org, tool_secrets
@@ -116,6 +116,37 @@ class McpServerUpdateIn(BaseModel):
     enabled: bool | None = None
     secret: str | None = Field(None, max_length=2000)
     clear_secret: bool = False
+
+
+class SpaceIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    description: str = Field("", max_length=300)
+    agent_ids: list[UUID] = Field(default_factory=list, max_length=12)
+    primary_agent_id: UUID | None = None
+
+
+class SpaceUpdateIn(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=80)
+    description: str | None = Field(None, max_length=300)
+    agent_ids: list[UUID] | None = Field(None, max_length=12)
+    primary_agent_id: UUID | None = None
+
+
+class MessageIn(BaseModel):
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class ToolDecisionIn(BaseModel):
+    allow: bool
+    remember: bool = False  # allow this tool for the rest of the agent's reply
+
+
+class LibraryAgentIn(BaseModel):
+    template: str = Field(min_length=2, max_length=48)
+
+
+class AgentDraftIn(BaseModel):
+    description: str = Field(min_length=10, max_length=2000)
 
 
 class DocumentUrlIn(BaseModel):
@@ -434,6 +465,75 @@ def create_app(config: Config | None = None, *, db: Any = None, provider_factory
     async def decide_proposal(org_id: UUID, proposal_id: UUID, decision: Literal["accept", "reject"], request: Request,
                               actor: Admin) -> dict[str, Any]:
         return await improve.decide_proposal(state(request).db, str(org_id), str(proposal_id), actor, decision == "accept")
+
+    # --- persona library & custom agents --------------------------------------------------------
+
+    async def ensure_department(db: Any, org_id: str, actor: Actor, source_md: str) -> None:
+        spec = parse_agent_markdown(source_md)
+        if not await db.select("departments", filters={"org_id": org_id, "slug": spec.department}):
+            await orgs.create_department(db, org_id, actor, spec.department, spec.department.replace("-", " ").title(),
+                                         f"Created for {spec.name}.")
+
+    @app.get("/library")
+    async def library(_: AnyUser) -> list[dict[str, Any]]:
+        return chat.load_library()
+
+    @app.post("/orgs/{org_id}/agents/from-library", status_code=201)
+    async def add_library_agent(org_id: UUID, body: LibraryAgentIn, request: Request, actor: Admin) -> dict[str, Any]:
+        template = next((t for t in chat.load_library() if t["id"] == body.template), None)
+        if template is None:
+            raise NotFound("unknown persona template")
+        db = state(request).db
+        await ensure_department(db, str(org_id), actor, template["source_md"])
+        return await orgs.create_agent(db, str(org_id), actor, template["source_md"], "added from the persona library")
+
+    @app.post("/orgs/{org_id}/agents/draft")
+    async def draft_custom_agent(org_id: UUID, body: AgentDraftIn, request: Request, _: Admin) -> dict[str, Any]:
+        s = state(request)
+        reg = await load_registry(s.db, str(org_id))
+        provider = await s.provider_factory(str(org_id), org_default_model=reg.settings.default_model)
+        try:
+            return await draft_agent(provider, body.description, sorted(reg.departments))
+        except ValueError as e:
+            raise HTTPException(502, f"the model did not return a usable agent: {e}") from e
+
+    @app.post("/orgs/{org_id}/agents/quick", status_code=201)
+    async def create_custom_agent(org_id: UUID, body: AgentSourceIn, request: Request, actor: Admin) -> dict[str, Any]:
+        db = state(request).db
+        await ensure_department(db, str(org_id), actor, body.source_md)
+        return await orgs.create_agent(db, str(org_id), actor, body.source_md, body.note or "created in Spaces")
+
+    # --- spaces ------------------------------------------------------------------------------------
+
+    @app.post("/orgs/{org_id}/spaces", status_code=201)
+    async def create_space(org_id: UUID, body: SpaceIn, request: Request, actor: Member) -> dict[str, Any]:
+        return await chat.create_space(state(request).db, str(org_id), actor, name=body.name, description=body.description,
+                                       agent_ids=[str(a) for a in body.agent_ids],
+                                       primary_agent_id=str(body.primary_agent_id) if body.primary_agent_id else None)
+
+    @app.patch("/orgs/{org_id}/spaces/{space_id}")
+    async def update_space(org_id: UUID, space_id: UUID, body: SpaceUpdateIn, request: Request, actor: Member) -> dict[str, Any]:
+        return await chat.update_space(state(request).db, str(org_id), str(space_id), actor, name=body.name,
+                                       description=body.description,
+                                       agent_ids=[str(a) for a in body.agent_ids] if body.agent_ids is not None else None,
+                                       primary_agent_id=str(body.primary_agent_id) if body.primary_agent_id else None)
+
+    @app.delete("/orgs/{org_id}/spaces/{space_id}", status_code=204)
+    async def delete_space(org_id: UUID, space_id: UUID, request: Request, actor: Admin) -> None:
+        await chat.delete_space(state(request).db, str(org_id), str(space_id), actor)
+
+    @app.post("/orgs/{org_id}/spaces/{space_id}/messages", status_code=201)
+    async def post_space_message(org_id: UUID, space_id: UUID, body: MessageIn, request: Request, actor: Member) -> dict[str, Any]:
+        s = state(request)
+        return await chat.post_message(s.db, s.worker, str(org_id), str(space_id), actor, body.content)
+
+    @app.post("/orgs/{org_id}/spaces/{space_id}/read", status_code=204)
+    async def read_space(org_id: UUID, space_id: UUID, request: Request, actor: Viewer) -> None:
+        await chat.mark_read(state(request).db, str(org_id), str(space_id), actor.id)
+
+    @app.post("/orgs/{org_id}/space-messages/{message_id}/decision")
+    async def decide_space_tool(org_id: UUID, message_id: UUID, body: ToolDecisionIn, request: Request, actor: Admin) -> dict[str, Any]:
+        return await chat.decide(state(request).worker, str(org_id), str(message_id), actor, body.allow, body.remember)
 
     # --- knowledge base ----------------------------------------------------------------------------
 

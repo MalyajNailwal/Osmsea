@@ -44,6 +44,10 @@ escalation:
 limits:
   max_steps: 10
   timeout_seconds: 300
+persona:
+  tagline: Small changes, passing tests
+  voice: "Pragmatic and concise. Explains the change in two sentences, shows what the tests prove, and lists any risk."
+  color: green
 ---
 
 # Software Developer: execution instructions

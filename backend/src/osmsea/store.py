@@ -168,6 +168,8 @@ class MemoryStore:
         "documents": [("org_id", "sha256")],
         "document_chunks": [("document_id", "ordinal")],
         "actions": [("task_id", "kind")],
+        "space_agents": [("space_id", "agent_id")],
+        "space_reads": [("space_id", "user_id")],
     }
 
     def __init__(self) -> None:

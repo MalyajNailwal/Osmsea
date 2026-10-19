@@ -28,6 +28,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from . import chat
 from .actions import propose_for_task
 from .automation import fire_due
 from .evals import choose_model, record_case, run_eval, run_replay
@@ -134,20 +135,33 @@ class Worker:
         self.planning[workflow_id] = asyncio.create_task(job(), name=f"plan-{workflow_id}")
 
     async def start_workflow(self, org_id: str, goal: str, *, actor_id: str | None, actor_label: str,
-                             trigger_id: str | None = None, force_approval: bool = False, context: Any = None) -> dict[str, Any]:
+                             trigger_id: str | None = None, force_approval: bool = False, context: Any = None,
+                             space_id: str | None = None) -> dict[str, Any]:
         """Create a workflow from a goal and start planning it. Used by the API, the MCP server and triggers."""
         org = (await self.db.select("organizations", filters={"id": org_id}))[0]
         settings = parse_settings(org.get("settings"))
         wf = (await self.db.insert("workflows", {
             "org_id": org_id, "goal": goal.strip(), "status": "planning", "created_by": actor_id,
             "token_budget": settings.workflow_token_budget, "trigger_id": trigger_id, "force_approval": force_approval,
-            "context": context,
+            "context": context, "space_id": space_id,
         }))[0]
         await record_event(self.db, org_id, "workflow_created", f"Goal submitted by {actor_label}", workflow_id=wf["id"])
         await record_audit(self.db, org_id, "workflow.create", "workflow", actor_id=actor_id, actor_label=actor_label,
                            resource_id=wf["id"], resource_name=goal[:120], details={"trigger_id": trigger_id} if trigger_id else None)
         self.submit_planning(wf["id"])
         return wf
+
+    def submit_background(self, key: str, factory: Callable[[], Awaitable[None]]) -> None:
+        """Run a job (e.g. an agent's turn in a space) in this process; tracked so shutdown and recovery see it."""
+        async def job() -> None:
+            try:
+                await factory()
+            except Exception:
+                log.exception("background job %s failed", key)
+            finally:
+                self.evals.pop(key, None)
+
+        self.evals[key] = asyncio.create_task(job(), name=key)
 
     def submit_eval(self, run_id: str) -> None:
         async def job() -> None:
@@ -241,6 +255,10 @@ class Worker:
                 await record_event(self.db, wf["org_id"], "workflow_completed" if done else "workflow_failed",
                                    "Workflow completed: all tasks verified" if done else f"Workflow failed: {error}",
                                    level="info" if done else "error", workflow_id=wf["id"])
+                try:  # a workflow started from a space reports back there
+                    await chat.on_workflow_finished(self.db, wf, "completed" if done else "failed")
+                except Exception:
+                    log.exception("posting workflow %s result to its space failed", wf["id"])
 
     def _spawn(self, task: dict[str, Any], wf: dict[str, Any], org_timeout: int) -> None:
         job = asyncio.create_task(self._run(task, wf, org_timeout), name=f"task-{task['id']}")
@@ -470,6 +488,10 @@ class Worker:
             if await self.db.update("workflows", {"status": "plan_failed", "error": msg, "plan_errors": [msg],
                                                   "completed_at": now_iso()}, filters={"id": w["id"], "status": "planning"}):
                 await record_event(self.db, w["org_id"], "planning_failed", msg, level="error", workflow_id=w["id"])
+        for m in await self.db.select("space_messages", filters={"status": "thinking", "created_at": ("lt", cutoff)}):
+            if not self.evals:  # ponytail: no per-message tracking; with no jobs running, any "thinking" bubble is stale
+                await self.db.update("space_messages", {"status": "failed", "content": "Interrupted by a server restart. Ask again."},
+                                     filters={"id": m["id"], "status": "thinking"})
         for table in ("eval_runs", "replays"):
             for r in await self.db.select(table, filters={"status": ("in", ["queued", "running"]), "created_at": ("lt", cutoff)}):
                 if r["id"] not in self.evals:
